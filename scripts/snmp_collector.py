@@ -3,6 +3,7 @@
 FortiGate SNMP Collector
 Collects data from FortiGate devices via SNMP and stores in JSON format
 Uses threading for parallel collection
+Includes: faceplate info, model/firmware, real-time interface BW
 """
 
 import json
@@ -19,10 +20,13 @@ SNMP_VERSION = "2c"
 MIBS_DIR = Path(__file__).parent.parent / "mibs"
 DATA_DIR = Path(__file__).parent.parent / "data"
 OUTPUT_FILE = DATA_DIR / "fortigate_status.json"
+INTERFACE_FILE = DATA_DIR / "interface_stats.json"
+BW_HISTORY_FILE = DATA_DIR / "bw_history.json"
 
 # OIDs for FortiGate monitoring
 OIDS = {
     "sysName": "1.3.6.1.2.1.1.5.0",
+    "sysDescr": "1.3.6.1.2.1.1.1.0",
     "sysUpTime": "1.3.6.1.2.1.1.3.0",
     "fgProcessorUsage": "1.3.6.1.4.1.12356.101.4.1.3.0",
     "fgMemoryUsage": "1.3.6.1.4.1.12356.101.4.1.4.0",
@@ -30,6 +34,17 @@ OIDS = {
     "fgCurrentSessions": "1.3.6.1.4.1.12356.101.4.1.8.0",
     "sysContact": "1.3.6.1.2.1.1.4.0",
     "sysLocation": "1.3.6.1.2.1.1.6.0",
+}
+
+# Interface OIDs
+IF_OIDS = {
+    "ifDescr": "1.3.6.1.2.1.2.2.1.2",
+    "ifType": "1.3.6.1.2.1.2.2.1.3",
+    "ifSpeed": "1.3.6.1.2.1.2.2.1.5",
+    "ifOperStatus": "1.3.6.1.2.1.2.2.1.8",
+    "ifInOctets": "1.3.6.1.2.1.2.2.1.10",
+    "ifOutOctets": "1.3.6.1.2.1.2.2.1.16",
+    "ifName": "1.3.6.1.2.1.2.2.1.2",
 }
 
 def snmp_get(ip, oid, community=SNMP_COMMUNITY):
@@ -60,6 +75,163 @@ def snmp_get(ip, oid, community=SNMP_COMMUNITY):
     except Exception as e:
         return None
 
+def snmp_walk(ip, oid, community=SNMP_COMMUNITY):
+    """Execute SNMP WALK request and return list of (index, value) tuples"""
+    results = {}
+    try:
+        cmd = [
+            "snmpwalk",
+            "-v", SNMP_VERSION,
+            "-c", community,
+            "-t", "3",
+            "-r", "0",
+            ip,
+            oid
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            for line in result.stdout.strip().split('\n'):
+                if "=" in line:
+                    parts = line.split("=")
+                    oid_part = parts[0].strip()
+                    value_part = parts[1].strip()
+                    for prefix in ["STRING: ", "INTEGER: ", "Gauge32: ", "Counter32: ", "Counter64: "]:
+                        if value_part.startswith(prefix):
+                            value_part = value_part[len(prefix):].strip()
+                            break
+                    if value_part.startswith('"') and value_part.endswith('"'):
+                        value_part = value_part[1:-1]
+                    # Extract index from oid
+                    oid_index = oid_part.split(".")[-1] if "." in oid_part else "0"
+                    results[oid_index] = value_part
+        return results
+    except Exception as e:
+        return results
+
+def parse_model_firmware(sys_descr):
+    """Parse sysDescr to extract model and firmware version"""
+    if not sys_descr:
+        return "Unknown", "Unknown"
+    
+    # Example: FortiGate-60E v6.2.5,build1129,191209
+    parts = sys_descr.split()
+    model = "Unknown"
+    firmware = "Unknown"
+    
+    for i, part in enumerate(parts):
+        if "FortiGate" in part or "FG" in part:
+            if i + 1 < len(parts):
+                model = part + " " + parts[i+1] if i+1 < len(parts) else part
+            else:
+                model = part
+        if "v" in part and "." in part:
+            firmware = part.rstrip(',')
+            break
+    
+    if model == "Unknown" and len(parts) > 0:
+        model = parts[0]
+    
+    return model.strip(), firmware.strip()
+
+def collect_interface_data(ip):
+    """Collect interface statistics for bandwidth calculation"""
+    interfaces = {}
+    
+    # Get interface descriptions/names
+    if_names = snmp_walk(ip, IF_OIDS["ifName"])
+    if not if_names:
+        if_names = snmp_walk(ip, IF_OIDS["ifDescr"])
+    
+    # Get interface speeds
+    if_speeds = snmp_walk(ip, IF_OIDS["ifSpeed"])
+    
+    # Get interface statuses
+    if_statuses = snmp_walk(ip, IF_OIDS["ifOperStatus"])
+    
+    # Get interface octets (for bandwidth calculation)
+    if_in_octets = snmp_walk(ip, IF_OIDS["ifInOctets"])
+    if_out_octets = snmp_walk(ip, IF_OIDS["ifOutOctets"])
+    
+    for idx in if_names.keys():
+        name = if_names.get(idx, f"if{idx}")
+        speed = if_speeds.get(idx, "0")
+        status = if_statuses.get(idx, "2")
+        in_octets = if_in_octets.get(idx, "0")
+        out_octets = if_out_octets.get(idx, "0")
+        
+        try:
+            speed_val = int(speed)
+        except:
+            speed_val = 0
+        
+        try:
+            in_octets_val = int(in_octets)
+            out_octets_val = int(out_octets)
+        except:
+            in_octets_val = 0
+            out_octets_val = 0
+        
+        interfaces[idx] = {
+            "name": name,
+            "speed": speed_val,
+            "speed_human": f"{speed_val // 1000000} Mbps" if speed_val > 0 else "Unknown",
+            "status": "up" if status == "1" else "down",
+            "in_octets": in_octets_val,
+            "out_octets": out_octets_val,
+            "timestamp": time.time()
+        }
+    
+    return interfaces
+
+def calculate_bandwidth(current_stats, previous_stats):
+    """Calculate real-time bandwidth from two data points"""
+    bw_data = {}
+    
+    for idx in current_stats.keys():
+        if idx in previous_stats:
+            curr = current_stats[idx]
+            prev = previous_stats[idx]
+            
+            time_diff = curr["timestamp"] - prev["timestamp"]
+            if time_diff <= 0:
+                time_diff = 1
+            
+            in_diff = curr["in_octets"] - prev["in_octets"]
+            out_diff = curr["out_octets"] - prev["out_octets"]
+            
+            # Handle counter wrap (32-bit)
+            if in_diff < 0:
+                in_diff += 2**32
+            if out_diff < 0:
+                out_diff += 2**32
+            
+            # Calculate bps (octets to bits)
+            in_bps = (in_diff * 8) / time_diff
+            out_bps = (out_diff * 8) / time_diff
+            
+            bw_data[idx] = {
+                "name": curr["name"],
+                "in_bps": in_bps,
+                "out_bps": out_bps,
+                "in_human": format_bandwidth(in_bps),
+                "out_human": format_bandwidth(out_bps),
+                "status": curr["status"],
+                "speed": curr["speed_human"]
+            }
+    
+    return bw_data
+
+def format_bandwidth(bps):
+    """Format bandwidth in human readable format"""
+    if bps < 1000:
+        return f"{bps:.1f} bps"
+    elif bps < 1000000:
+        return f"{bps/1000:.1f} Kbps"
+    elif bps < 1000000000:
+        return f"{bps/1000000:.1f} Mbps"
+    else:
+        return f"{bps/1000000000:.1f} Gbps"
+
 def collect_device_data(ip):
     """Collect all SNMP data from a single device"""
     device_data = {
@@ -75,6 +247,7 @@ def collect_device_data(ip):
     device_data["status"] = "online"
     device_data["hostname"] = sys_name
     
+    # Collect system info
     for key, oid in OIDS.items():
         if key == "sysName":
             device_data[key] = sys_name
@@ -86,8 +259,17 @@ def collect_device_data(ip):
                         device_data[key] = int(value)
                     except:
                         device_data[key] = value
+                elif key == "sysDescr":
+                    device_data[key] = value
+                    model, firmware = parse_model_firmware(value)
+                    device_data["model"] = model
+                    device_data["firmware"] = firmware
                 else:
                     device_data[key] = value
+    
+    # Collect interface data for bandwidth
+    interfaces = collect_interface_data(ip)
+    device_data["interfaces"] = interfaces
     
     return device_data
 
@@ -111,6 +293,30 @@ def main():
                 print(f"Error collecting from {ip}: {exc}")
                 results.append({"ip": ip, "status": "error", "timestamp": datetime.now().isoformat()})
     
+    # Load previous interface stats for bandwidth calculation
+    previous_stats = {}
+    if INTERFACE_FILE.exists():
+        try:
+            with open(INTERFACE_FILE, 'r') as f:
+                previous_stats = json.load(f)
+        except:
+            pass
+    
+    # Calculate bandwidth for each device
+    current_stats = {}
+    for device in results:
+        if device.get("status") == "online" and "interfaces" in device:
+            current_stats[device["ip"]] = device["interfaces"]
+            
+            if device["ip"] in previous_stats:
+                bw_data = calculate_bandwidth(device["interfaces"], previous_stats[device["ip"]])
+                device["bandwidth"] = bw_data
+    
+    # Save current interface stats for next calculation
+    with open(INTERFACE_FILE, 'w') as f:
+        json.dump(current_stats, f, indent=2)
+    
+    # Save results
     output = {
         "collection_time": datetime.now().isoformat(),
         "total_devices": len(FORTIGATE_IPS),
