@@ -35,11 +35,8 @@ OIDS = {
     "sysLocation": "1.3.6.1.2.1.1.6.0",
     "fgFirmware": "1.3.6.1.4.1.12356.101.4.1.1.0",
     "fgModel": "1.3.6.1.2.1.1.1.0",  # Use sysDescr for model info
-    # SD-WAN SLA OIDs
-    "fgSdwanSlaStatus": "1.3.6.1.4.1.12356.101.10.2.1.1.13",
-    "fgSdwanSlaLatency": "1.3.6.1.4.1.12356.101.10.2.1.1.14",
-    "fgSdwanSlaJitter": "1.3.6.1.4.1.12356.101.10.2.1.1.15",
-    "fgSdwanSlaPacketLoss": "1.3.6.1.4.1.12356.101.10.2.1.1.16",
+    # SD-WAN SLA OIDs (fgLinkMonitorTable - walk these)
+    "fgLinkMonitorTable": "1.3.6.1.4.1.12356.101.10.2.2",
 }
 
 # Interface OIDs
