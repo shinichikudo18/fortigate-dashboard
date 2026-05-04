@@ -87,7 +87,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for device in data.devices|sort(attribute='hostname') %}
+                            {% for device in data.devices|sort(attribute='ip') %}
                             <tr class="{% if device.status == 'online' %}table-success{% else %}table-danger{% endif %}">
                                 <td><a href="/branch/{{ device.hostname }}">{{ device.hostname }}</a></td>
                                 <td>{{ device.ip }}</td>
