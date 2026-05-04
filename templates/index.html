@@ -1,4 +1,4 @@
-        // Diagram functionality - Simplified version
+        // Diagram functionality - Simple working version
         function loadDiagram() {
             console.log('Loading diagram...');
             const container = document.getElementById('diagram-container');
@@ -11,7 +11,7 @@
             
             // Get devices data
             const devices = JSON.parse('{{ data.devices|tojson|safe }}');
-            console.log('Devices loaded:', devices.length);
+            console.log('Devices:', devices.length);
             
             if (!devices || devices.length === 0) {
                 svg.append('text')
@@ -29,14 +29,17 @@
                 status: d.status,
                 ip: d.ip,
                 cpu: d.fgProcessorUsage || 0,
-                memory: d.fgMemoryUsage || 0
+                memory: d.fgMemoryUsage || 0,
+                x: width/2 + (Math.random() - 0.5) * 200,
+                y: height/2 + (Math.random() - 0.5) * 200
             }));
             
             // Create links (connect devices in same subnet)
             const links = [];
             const subnets = {};
             nodes.forEach(node => {
-                const subnet = node.ip.split('.').slice(0,3).join('.');
+                const parts = node.ip.split('.');
+                const subnet = parts[0] + '.' + parts[1] + '.' + parts[2];
                 if (!subnets[subnet]) subnets[subnet] = [];
                 subnets[subnet].push(node);
             });
@@ -44,8 +47,8 @@
             Object.values(subnets).forEach(subnetNodes => {
                 for (let i = 0; i < subnetNodes.length - 1; i++) {
                     links.push({
-                        source: subnetNodes[i].id,
-                        target: subnetNodes[i+1].id
+                        source: subnetNodes[i],
+                        target: subnetNodes[i+1]
                     });
                 }
             });
@@ -57,8 +60,8 @@
                 .nodes(nodes)
                 .force('link', d3.forceLink(links).id(d => d.id).distance(100))
                 .force('charge', d3.forceManyBody().strength(-300))
-                .force('center', d3.forceCenter(width / 2, height / 2))
-                .force('collision', d3.forceCollide().radius(40));
+                .force('center', d3.forceCenter(width/2, height/2))
+                .force('collision', d3.forceCollide().radius(50));
             
             // Draw links
             const link = svg.append('g')
@@ -101,7 +104,7 @@
                 .attr('text-anchor', 'middle')
                 .style('fill', d => d.status === 'online' ? '#28a745' : '#dc3545')
                 .style('font-size', '10px')
-                .text(d => d.status === 'online' ? `CPU: ${d.cpu}%` : 'OFFLINE');
+                .text(d => d.status === 'online' ? 'CPU: ' + d.cpu + '%' : 'OFFLINE');
             
             // Tooltip
             const tooltip = d3.select('body').append('div')
@@ -117,7 +120,7 @@
             
             node.on('mouseover', function(event, d) {
                 tooltip.transition().duration(200).style('opacity', 0.9);
-                tooltip.html(`<strong>${d.name}</strong><br>IP: ${d.ip}<br>Status: ${d.status}<br>CPU: ${d.cpu}%<br>Memory: ${d.memory}%`)
+                tooltip.html('<strong>' + d.name + '</strong><br>IP: ' + d.ip + '<br>Status: ' + d.status + '<br>CPU: ' + d.cpu + '%<br>Memory: ' + d.memory + '%')
                     .style('left', (event.pageX + 10) + 'px')
                     .style('top', (event.pageY - 28) + 'px');
             })
@@ -153,7 +156,7 @@
                     .attr('y2', d => d.target.y);
                 
                 node
-                    .attr('transform', d => `translate(${d.x}, ${d.y})`);
+                    .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
             });
             
             console.log('Diagram loaded successfully');
