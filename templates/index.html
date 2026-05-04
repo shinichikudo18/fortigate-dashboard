@@ -339,7 +339,7 @@
                 <div class="row">
                     {% for sla_name, sla_data in device.sla.items() %}
                     <div class="col-md-6 col-lg-4">
-                        <div class="sla-card {% if sla_data.status == 'down' %}critical{% elif sla_data.latency|int > 100 %}warning{% endif %}">
+                        <div class="sla-card {% if sla_data.status == 'down' %}critical{% elif sla_data.latency_ms|int > 100 %}warning{% endif %}">
                             <div class="d-flex justify-content-between">
                                 <strong>{{ sla_name }}</strong>
                                 <span class="badge bg-{% if sla_data.status == 'up' %}success{% else %}danger{% endif %}">
@@ -347,10 +347,7 @@
                                 </span>
                             </div>
                             <div class="sla-metric">
-                                <small class="text-success">Latency: {{ sla_data.latency }} ms</small>
-                            </div>
-                            <div class="sla-metric">
-                                <small class="text-warning">Jitter: {{ sla_data.jitter }} ms</small>
+                                <small class="text-success">Latency: {{ sla_data.latency_ms }} ms</small>
                             </div>
                             <div class="sla-metric">
                                 <small class="text-danger">Packet Loss: {{ sla_data.packet_loss }}%</small>
