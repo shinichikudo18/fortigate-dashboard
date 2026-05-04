@@ -262,7 +262,7 @@
 
             <!-- Diagrama Tab -->
             <div class="tab-pane fade" id="diagrama" role="tabpanel">
-                <div id="diagram-container">
+                <div id="diagram-container" style="width: 100%; height: 600px; border: 1px solid #dee2e6; border-radius: 8px; background: #f8f9fa;">
                     <svg id="diagram-svg" width="100%" height="100%"></svg>
                 </div>
             </div>
@@ -471,7 +471,7 @@
             const container = document.getElementById('diagram-container');
             const svg = d3.select('#diagram-svg');
             const width = container.clientWidth;
-            const height = container.clientHeight;
+            const height = container.clientHeight || 600;
             
             svg.attr('width', width).attr('height', height);
             
@@ -479,49 +479,152 @@
             svg.selectAll('*').remove();
             
             // Get devices data from the page
-            const devices = {{ data.devices|tojson }};
+            const devices = JSON.parse('{{ data.devices|tojson|safe }}');
+            
+            if (!devices || devices.length === 0) {
+                svg.append('text')
+                    .attr('x', width/2)
+                    .attr('y', height/2)
+                    .attr('text-anchor', 'middle')
+                    .text('No device data available');
+                return;
+            }
             
             // Create nodes (devices)
-            const nodes = [];
-            const nodeMap = {};
-            
-            devices.forEach((device, i) => {
-                const node = {
-                    id: device.ip,
-                    name: device.hostname || device.ip,
-                    status: device.status,
-                    ip: device.ip,
-                    cpu: device.fgProcessorUsage || 0,
-                    memory: device.fgMemoryUsage || 0,
-                    sessions: device.fgCurrentSessions || 0,
-                    bandwidth: device.bandwidth || {},
-                    x: 0,
-                    y: 0
-                };
-                nodes.push(node);
-                nodeMap[device.ip] = node;
-            });
+            const nodes = devices.map(d => ({
+                id: d.ip,
+                name: d.hostname || d.ip,
+                status: d.status,
+                ip: d.ip,
+                cpu: d.fgProcessorUsage || 0,
+                memory: d.fgMemoryUsage || 0,
+                sessions: d.fgCurrentSessions || 0,
+                online: d.status === 'online'
+            }));
             
             // Create links based on network topology (same subnet = connected)
             const links = [];
             const subnets = {};
             
             nodes.forEach(node => {
-                const ipParts = node.ip.split('.');
-                const subnet = ipParts[0] + '.' + ipParts[1] + '.' + ipParts[2];
+                const parts = node.ip.split('.');
+                const subnet = parts.slice(0, 3).join('.');
                 if (!subnets[subnet]) subnets[subnet] = [];
                 subnets[subnet].push(node);
             });
             
-            // Connect devices in same subnet
             Object.values(subnets).forEach(subnetNodes => {
                 for (let i = 0; i < subnetNodes.length - 1; i++) {
                     links.push({
                         source: subnetNodes[i].id,
-                        target: subnetNodes[i+1].id,
-                        subnet: subnetNodes[i].ip.split('.').slice(0,3).join('.')
+                        target: subnetNodes[i+1].id
                     });
                 }
+            });
+            
+            // Use force simulation
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(50));
+            
+            // Create links
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(links)
+                .enter()
+                .append('line')
+                .attr('class', 'link')
+                .style('stroke', '#999')
+                .style('stroke-width', 2);
+            
+            // Create node groups
+            const node = svg.append('g')
+                .selectAll('.node')
+                .data(nodes)
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .style('cursor', 'pointer');
+            
+            // Add circles
+            node.append('circle')
+                .attr('r', 25)
+                .style('fill', d => d.online ? '#28a745' : '#dc3545')
+                .style('stroke', '#fff')
+                .style('stroke-width', 2);
+            
+            // Add labels
+            node.append('text')
+                .attr('dy', -30)
+                .attr('text-anchor', 'middle')
+                .style('fill', '#333')
+                .style('font-size', '12px')
+                .style('font-weight', 'bold')
+                .text(d => d.name);
+            
+            // Add status text
+            node.append('text')
+                .attr('dy', 5)
+                .attr('text-anchor', 'middle')
+                .style('fill', d => d.online ? '#28a745' : '#dc3545')
+                .style('font-size', '10px')
+                .text(d => d.online ? `CPU: ${d.cpu}%` : 'OFFLINE');
+            
+            // Tooltip
+            const tooltip = d3.select('body').append('div')
+                .attr('class', 'tooltip')
+                .style('opacity', 0)
+                .style('position', 'absolute')
+                .style('background', 'rgba(0,0,0,0.8)')
+                .style('color', 'white')
+                .style('padding', '10px')
+                .style('border-radius', '5px')
+                .style('pointer-events', 'none')
+                .style('font-size', '12px');
+            
+            node.on('mouseover', function(event, d) {
+                tooltip.transition().duration(200).style('opacity', .9);
+                tooltip.html(`<strong>${d.name}</strong><br>IP: ${d.ip}<br>Status: ${d.status}<br>CPU: ${d.cpu}%<br>Memory: ${d.memory}%<br>Sessions: ${d.sessions}`)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
+            })
+            .on('mouseout', function() {
+                tooltip.transition().duration(500).style('opacity', 0);
+            });
+            
+            // Drag behavior
+            const drag = d3.drag()
+                .on('start', (event, d) => {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                })
+                .on('drag', (event, d) => {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                })
+                .on('end', (event, d) => {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                });
+            
+            node.call(drag);
+            
+            // Update positions on simulation tick
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                
+                node
+                    .attr('transform', d => `translate(${d.x}, ${d.y})`);
+            });
+        }
             });
             
             // Use force simulation
