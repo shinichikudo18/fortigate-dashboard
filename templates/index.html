@@ -432,9 +432,9 @@
                 {% if device.get('switches') %}
                 <div class="mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="mb-0">FortiSwitch Devices ({{ device.switches|length }})</h4>
+                        <h4 class="mb-0">Connected Devices ({{ device.switches|length }})</h4>
                         <button class="btn btn-secondary btn-sm-custom" type="button" data-bs-toggle="collapse" data-bs-target="#switches-{{ hostname }}" aria-expanded="false">
-                            Show/Hide Switches
+                            Show/Hide Devices
                         </button>
                     </div>
                     <div class="collapse" id="switches-{{ hostname }}">
@@ -443,11 +443,11 @@
                             <div class="col-md-6 col-lg-4">
                                 <div class="interface-card">
                                     <div class="d-flex justify-content-between">
-                                        <strong>Switch {{ sw_id }}</strong>
+                                        <strong>Device {{ sw_id }}</strong>
                                         <span class="badge bg-success">ACTIVE</span>
                                     </div>
                                     <div class="mt-2">
-                                        <small>{{ sw_data }}</small>
+                                        <small>Platform: {{ sw_data.get('fgSwDevicePlatform', '') }} | CPU: {{ sw_data.get('fgSwCpu', '') }}% | Memory: {{ sw_data.get('fgSwMemory', '') }}%</small>
                                     </div>
                                 </div>
                             </div>

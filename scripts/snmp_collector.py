@@ -37,6 +37,8 @@ OIDS = {
     "fgModel": "1.3.6.1.2.1.1.1.0",  # Use sysDescr for model info
     # SD-WAN SLA OIDs (fgLinkMonitorTable)
     "fgLinkMonitorTable": "1.3.6.1.4.1.12356.101.10.2.2",
+    # FortiSwitch OIDs (fgSw = 1.3.6.1.4.1.12356.2)
+    "fgSwDeviceTable": "1.3.6.1.4.1.12356.2.1.3.2",
 }
 
 # Interface OIDs
