@@ -384,6 +384,11 @@
                                         {{ iface.status|upper }}
                                     </span>
                                 </div>
+                                {% if device.get('interfaces', {}).get(idx, {}).get('description') %}
+                                <div class="mt-1">
+                                    <small class="text-muted">{{ device.interfaces[idx].description }}</small>
+                                </div>
+                                {% endif %}
                                 <div class="mt-2">
                                     <small class="text-success">↓ In: {{ iface.in_human }}</small><br>
                                     <small class="text-primary">↑ Out: {{ iface.out_human }}</small>
@@ -414,12 +419,25 @@
                     <h4>System Information</h4>
                     <table class="table table-sm">
                         <tr><td><strong>Model/Firmware:</strong></td><td>{{ device.get('firmware', 'N/A') }}</td></tr>
+                        {% if device.get('switch_model') %}
+                        <tr><td><strong>Switch Model:</strong></td><td>{{ device.get('switch_model') }}</td></tr>
+                        {% endif %}
                         <tr><td><strong>Serial:</strong></td><td>{{ device.get('sysDescr', 'N/A') }}</td></tr>
                         <tr><td><strong>Contact:</strong></td><td>{{ device.get('sysContact', 'N/A') }}</td></tr>
                         <tr><td><strong>Location:</strong></td><td>{{ device.get('sysLocation', 'N/A') }}</td></tr>
                         <tr><td><strong>Uptime:</strong></td><td>{{ device.get('sysUpTime', 'N/A') }}</td></tr>
                     </table>
                 </div>
+
+                {% if device.get('switch_model') %}
+                <div class="mt-4">
+                    <h4>FortiSwitch Information</h4>
+                    <div class="alert alert-info">
+                        <strong>Switch Model:</strong> {{ device.get('switch_model') }}<br>
+                        This device appears to be a FortiSwitch. Switch-specific monitoring can be enhanced with additional OIDs.
+                    </div>
+                </div>
+                {% endif %}
                 {% else %}
                 <div class="alert alert-danger">
                     <h4>Device Offline</h4>

@@ -37,17 +37,22 @@ OIDS = {
     "fgModel": "1.3.6.1.2.1.1.1.0",  # Use sysDescr for model info
     # SD-WAN SLA OIDs (fgLinkMonitorTable - walk these)
     "fgLinkMonitorTable": "1.3.6.1.4.1.12356.101.10.2.2",
+    # FortiSwitch OIDs
+    "fgSwitchModel": "1.3.6.1.4.1.12356.2.1.1.0",  # Example, verify in MIB
+}
 }
 
-# Interface OIDs
-IF_OIDS = {
-    "ifDescr": "1.3.6.1.2.1.2.2.1.2",
+    # Interface OIDs
+    "ifDescr": "1.3.6.1.2.1.2.2.1.2",  # Interface description
     "ifType": "1.3.6.1.2.1.2.2.1.3",
     "ifSpeed": "1.3.6.1.2.1.2.2.1.5",
     "ifOperStatus": "1.3.6.1.2.1.2.2.1.8",
     "ifInOctets": "1.3.6.1.2.1.2.2.1.10",
     "ifOutOctets": "1.3.6.1.2.1.2.2.1.16",
-    "ifName": "1.3.6.1.2.1.2.2.1.2",
+    "ifName": "1.3.6.1.2.1.2.2.1.2",  # Interface name
+    # FortiSwitch OIDs (same MIB)
+    "fgSwitchModel": "1.3.6.1.4.1.12356.2.1.1.0",  # Example, may need adjustment
+}
 }
 
 def snmp_get(ip, oid, community=SNMP_COMMUNITY):
@@ -114,17 +119,31 @@ def collect_interface_data(ip):
     """Collect interface statistics for bandwidth calculation"""
     interfaces = {}
     
+    # Get interface names and descriptions
     if_names = snmp_walk(ip, IF_OIDS["ifName"])
-    if not if_names:
-        if_names = snmp_walk(ip, IF_OIDS["ifDescr"])
+    if_descrs = snmp_walk(ip, IF_OIDS["ifDescr"])
     
+    # Get interface speeds
     if_speeds = snmp_walk(ip, IF_OIDS["ifSpeed"])
+    # Get interface statuses
     if_statuses = snmp_walk(ip, IF_OIDS["ifOperStatus"])
+    # Get interface octets (for bandwidth calculation)
     if_in_octets = snmp_walk(ip, IF_OIDS["ifInOctets"])
     if_out_octets = snmp_walk(ip, IF_OIDS["ifOutOctets"])
     
-    for idx in if_names.keys():
-        name = if_names.get(idx, f"if{idx}")
+    # Use if_names keys, but if empty use if_descrs keys
+    all_idx = set(if_names.keys()) | set(if_descrs.keys())
+    
+    for idx in all_idx:
+        name = if_names.get(idx, "")
+        descr = if_descrs.get(idx, "")
+        # Prefer name, fallback to descr, fallback to if{idx}
+        display_name = name if name else (descr if descr else f"if{idx}")
+        # Clean up name: remove quotes, extra spaces
+        display_name = display_name.strip().strip('"').strip("'")
+        if not display_name:
+            display_name = f"Interface {idx}"
+        
         speed = if_speeds.get(idx, "0")
         status = if_statuses.get(idx, "2")
         in_octets = if_in_octets.get(idx, "0")
@@ -143,7 +162,8 @@ def collect_interface_data(ip):
             out_octets_val = 0
         
         interfaces[idx] = {
-            "name": name,
+            "name": display_name,
+            "description": descr.strip().strip('"').strip("'") if descr else "",
             "speed": speed_val,
             "speed_human": f"{speed_val // 1000000} Mbps" if speed_val > 0 else "Unknown",
             "status": "up" if status == "1" else "down",
@@ -238,6 +258,9 @@ def collect_device_data(ip):
                             device_data["model"] = parts[0]
                 elif key == "fgFirmware":
                     device_data["firmware"] = value
+                elif key == "fgSwitchModel":
+                    # FortiSwitch model
+                    device_data["switch_model"] = value
                 elif key.startswith("fgSdwan"):
                     # Handle SD-WAN SLA metrics
                     pass
