@@ -2,6 +2,7 @@
 """
 FortiGate SNMP Collector
 Collects data from FortiGate devices via SNMP and stores in JSON format
+Uses threading for parallel collection
 """
 
 import json
@@ -9,6 +10,7 @@ import time
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration
 FORTIGATE_IPS = [f"193.168.100.{i}" for i in range(2, 30)] + ["193.168.100.250"]
@@ -37,23 +39,20 @@ def snmp_get(ip, oid, community=SNMP_COMMUNITY):
             "snmpget",
             "-v", SNMP_VERSION,
             "-c", community,
-            "-t", "5",
-            "-r", "1",
+            "-t", "3",
+            "-r", "0",
             ip,
             oid
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             output = result.stdout.strip()
-            # Parse the output to extract value
             if "=" in output:
                 value_part = output.split("=")[1].strip()
-                # Remove type prefix like "STRING: " or "INTEGER: "
                 for prefix in ["STRING: ", "INTEGER: ", "Timeticks: ", "Gauge32: "]:
                     if value_part.startswith(prefix):
                         value_part = value_part[len(prefix):].strip()
                         break
-                # Remove quotes from strings
                 if value_part.startswith('"') and value_part.endswith('"'):
                     value_part = value_part[1:-1]
                 return value_part
@@ -69,7 +68,6 @@ def collect_device_data(ip):
         "status": "unreachable"
     }
     
-    # Try to get system name first to check if device is reachable
     sys_name = snmp_get(ip, OIDS["sysName"])
     if sys_name is None:
         return device_data
@@ -77,14 +75,12 @@ def collect_device_data(ip):
     device_data["status"] = "online"
     device_data["hostname"] = sys_name
     
-    # Collect all OIDs
     for key, oid in OIDS.items():
         if key == "sysName":
             device_data[key] = sys_name
         else:
             value = snmp_get(ip, oid)
             if value is not None:
-                # Try to convert to appropriate type
                 if key in ["fgProcessorUsage", "fgMemoryUsage", "fgDiskUsage", "fgCurrentSessions"]:
                     try:
                         device_data[key] = int(value)
@@ -103,12 +99,18 @@ def main():
     print(f"Target devices: {len(FORTIGATE_IPS)}")
     
     results = []
-    for ip in FORTIGATE_IPS:
-        print(f"Collecting from {ip}...")
-        data = collect_device_data(ip)
-        results.append(data)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_ip = {executor.submit(collect_device_data, ip): ip for ip in FORTIGATE_IPS}
+        for future in as_completed(future_to_ip):
+            ip = future_to_ip[future]
+            try:
+                data = future.result()
+                results.append(data)
+                print(f"Collected from {ip}: {data['status']}")
+            except Exception as exc:
+                print(f"Error collecting from {ip}: {exc}")
+                results.append({"ip": ip, "status": "error", "timestamp": datetime.now().isoformat()})
     
-    # Save results
     output = {
         "collection_time": datetime.now().isoformat(),
         "total_devices": len(FORTIGATE_IPS),
