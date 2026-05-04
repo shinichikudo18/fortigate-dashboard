@@ -227,19 +227,11 @@ def collect_device_data(ip):
                         device_data[key] = value
                 elif key == "fgFirmware":
                     device_data["firmware"] = value
-                    # Extract model from sysDescr if available
-                    if "FortiGate" in value or "FGT" in value:
-                        parts = value.split()
-                        for i, part in enumerate(parts):
-                            if "FortiGate" in part or "FGT" in part:
-                                device_data["model"] = part
-                                break
                 elif key == "sysDescr":
                     device_data["sysDescr"] = value
                     # Parse model from description
                     if "FortiGate" in value:
-                        # Extract model info
-                        device_data["model"] = value.replace("FortiGate ", "").strip()
+                        device_data["model"] = value.strip()
                 else:
                     device_data[key] = value
     

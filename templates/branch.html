@@ -167,13 +167,17 @@
                         <small class="text-success">↓ In: {{ iface.in_human }}</small><br>
                         <small class="text-primary">↑ Out: {{ iface.out_human }}</small>
                     </div>
+                    {% if device.get('interfaces', {}).get(idx, {}).get('speed', 0) > 0 %}
                     <div class="bw-bar">
-                        <div class="bw-in" style="width: {% if iface.in_bps > 0 and device.get('interfaces', {}).get(idx, {}).get('speed', 0) > 0 %}{{ (iface.in_bps / (device.interfaces[idx].speed / 8 * 1000000) * 100)|round(2) }}{% else %}0{% endif %}%"></div>
-                        <div class="bw-out" style="width: {% if iface.out_bps > 0 and device.get('interfaces', {}).get(idx, {}).get('speed', 0) > 0 %}{{ (iface.out_bps / (device.interfaces[idx].speed / 8 * 1000000) * 100)|round(2) }}{% else %}0{% endif %}%"></div>
+                        {% set in_pct = (iface.in_bps / (device.interfaces[idx].speed / 8 * 1000000) * 100)|round(2) %}
+                        {% set out_pct = (iface.out_bps / (device.interfaces[idx].speed / 8 * 1000000) * 100)|round(2) %}
+                        <div class="bw-in" style="width: {{ [in_pct, 100]|min }}%"></div>
+                        <div class="bw-out" style="width: {{ [out_pct, 100]|min }}%"></div>
                     </div>
                     <div class="mt-1">
                         <small class="text-muted">Speed: {{ iface.speed }}</small>
                     </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -181,6 +185,7 @@
         {% else %}
         <div class="alert alert-info">
             Bandwidth data will be available after the next collection cycle (requires 2 data points).
+            <br><small>Run: <code>python3 scripts/snmp_collector.py</code> twice with a few minutes interval.</small>
         </div>
         {% endif %}
 
@@ -198,7 +203,7 @@
         {% else %}
         <div class="alert alert-danger">
             <h4>Device Offline</h4>
-            <p>Unable to connect to {{ device.ip }} via SNMP.</p>
+            <p>Unable to connect to {{ device.ip }} via SNMP (community: Agnov).</p>
         </div>
         {% endif %}
         {% endfor %}
