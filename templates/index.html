@@ -429,12 +429,30 @@
                     </table>
                 </div>
 
-                {% if device.get('switch_model') %}
+                {% if device.get('switches') %}
                 <div class="mt-4">
-                    <h4>FortiSwitch Information</h4>
-                    <div class="alert alert-info">
-                        <strong>Switch Model:</strong> {{ device.get('switch_model') }}<br>
-                        This device appears to be a FortiSwitch. Switch-specific monitoring can be enhanced with additional OIDs.
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">FortiSwitch Devices ({{ device.switches|length }})</h4>
+                        <button class="btn btn-secondary btn-sm-custom" type="button" data-bs-toggle="collapse" data-bs-target="#switches-{{ hostname }}" aria-expanded="false">
+                            Show/Hide Switches
+                        </button>
+                    </div>
+                    <div class="collapse" id="switches-{{ hostname }}">
+                        <div class="row">
+                            {% for sw_id, sw_data in device.switches.items() %}
+                            <div class="col-md-6 col-lg-4">
+                                <div class="interface-card">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>Switch {{ sw_id }}</strong>
+                                        <span class="badge bg-success">ACTIVE</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small>{{ sw_data }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
                 {% endif %}
