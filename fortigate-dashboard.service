@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/fortigate-dashboard
+ExecStartPre=/bin/sh -c 'fuser -k 8080/tcp || true'
 ExecStart=/usr/bin/python3 /opt/fortigate-dashboard/scripts/dashboard.py
 Restart=always
 RestartSec=10

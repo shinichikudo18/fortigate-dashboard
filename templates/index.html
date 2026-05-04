@@ -59,7 +59,7 @@
             </li>
             {% set hostnames = [] %}
             {% for device in data.devices %}
-                {% if device.hostname not in hostnames %}
+                {% if device.get('hostname') and device.hostname not in hostnames %}
                     {% set _ = hostnames.append(device.hostname) %}
                 {% endif %}
             {% endfor %}
