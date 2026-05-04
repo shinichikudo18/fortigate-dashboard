@@ -1,53 +1,51 @@
-        results = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_ip = {executor.submit(collect_device_data, ip): ip for ip in FORTIGATE_IPS}
-        for future in as_completed(future_to_ip):
-            ip = future_to_ip[future]
-            try:
-                data = future.result()
-                results.append(data)
-                print(f"Collected from {ip}: {data['status']}")
-            except Exception as exc:
-                print(f"Error collecting from {ip}: {exc}")
-                results.append({"ip": ip, "status": "error", "timestamp": datetime.now().isoformat()})
-    
-    # Load previous interface stats for bandwidth calculation
-    previous_stats = {}
-    if INTERFACE_FILE.exists():
-        try:
-            with open(INTERFACE_FILE, 'r') as f:
-                previous_stats = json.load(f)
-        except:
-            pass
-    
-    # Calculate bandwidth for each device
-    current_stats = {}
-    for device in results:
-        if device.get("status") == "online" and "interfaces" in device:
-            current_stats[device["ip"]] = device["interfaces"]
-            
-            if device["ip"] in previous_stats:
-                bw_data = calculate_bandwidth(device["interfaces"], previous_stats[device["ip"]])
-                device["bandwidth"] = bw_data
-    
-    # Save current interface stats for next calculation
-    with open(INTERFACE_FILE, 'w') as f:
-        json.dump(current_stats, f, indent=2)
-    
-    # Save results
-    output = {
-        "collection_time": datetime.now().isoformat(),
-        "total_devices": len(FORTIGATE_IPS),
-        "online_devices": sum(1 for d in results if d["status"] == "online"),
-        "devices": results
-    }
-    
-    with open(OUTPUT_FILE, 'w') as f:
-        json.dump(output, f, indent=2)
-    
-    print(f"\nCollection complete!")
-    print(f"Total: {output['total_devices']}, Online: {output['online_devices']}")
-    print(f"Data saved to: {OUTPUT_FILE}")
+#!/usr/bin/env python3
+"""
+FortiGate SNMP Collector
+Collects data from FortiGate devices via SNMP and stores in JSON format
+Uses threading for parallel collection
+Includes: faceplate info, model/firmware, real-time interface BW
+"""
 
-if __name__ == "__main__":
-    main()
+import json
+import time
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Configuration
+FORTIGATE_IPS = [f"193.168.100.{i}" for i in range(2, 30)] + ["193.168.100.250"]
+SNMP_COMMUNITY = "Agnov"
+SNMP_VERSION = "2c"
+MIBS_DIR = Path(__file__).parent.parent / "mibs"
+DATA_DIR = Path(__file__).parent.parent / "data"
+OUTPUT_FILE = DATA_DIR / "fortigate_status.json"
+INTERFACE_FILE = DATA_DIR / "interface_stats.json"
+
+# OIDs for FortiGate monitoring
+OIDS = {
+    "sysName": "1.3.6.1.2.1.1.5.0",
+    "sysDescr": "1.3.6.1.2.1.1.1.0",
+    "sysUpTime": "1.3.6.1.2.1.1.3.0",
+    "fgProcessorUsage": "1.3.6.1.4.1.12356.101.4.1.3.0",
+    "fgMemoryUsage": "1.3.6.1.4.1.12356.101.4.1.4.0",
+    "fgDiskUsage": "1.3.6.1.4.1.12356.101.4.1.6.0",
+    "fgCurrentSessions": "1.3.6.1.4.1.12356.101.4.1.8.0",
+    "sysContact": "1.3.6.1.2.1.1.4.0",
+    "sysLocation": "1.3.6.1.2.1.1.6.0",
+    "fgFirmware": "1.3.6.1.4.1.12356.101.4.1.1.0",
+    "fgModel": "1.3.6.1.2.1.1.1.0",  # Use sysDescr for model info
+    # SD-WAN SLA OIDs (fgLinkMonitorTable)
+    "fgLinkMonitorTable": "1.3.6.1.4.1.12356.101.10.2.2",
+}
+
+# Interface OIDs
+IF_OIDS = {
+    "ifDescr": "1.3.6.1.2.1.2.2.1.2",  # Interface description
+    "ifType": "1.3.6.1.2.1.2.2.1.3",
+    "ifSpeed": "1.3.6.1.2.1.2.2.1.5",
+    "ifOperStatus": "1.3.6.1.2.1.2.2.1.8",
+    "ifInOctets": "1.3.6.1.2.1.2.2.1.10",
+    "ifOutOctets": "1.3.6.1.2.1.2.2.1.16",
+    "ifName": "1.3.6.1.2.1.2.2.1.2",  # Interface name
+}
