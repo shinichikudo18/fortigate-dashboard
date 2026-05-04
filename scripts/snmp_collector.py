@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration
 FORTIGATE_IPS = [f"193.168.100.{i}" for i in range(2, 30)] + ["193.168.100.250"]
-SNMP_COMMUNITY = "public"
+SNMP_COMMUNITY = "Agnov"
 SNMP_VERSION = "2c"
 MIBS_DIR = Path(__file__).parent.parent / "mibs"
 DATA_DIR = Path(__file__).parent.parent / "data"
