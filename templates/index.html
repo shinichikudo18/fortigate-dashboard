@@ -6,6 +6,7 @@
     <title>FortiGate Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/static/style.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         .faceplate {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -104,6 +105,54 @@
             padding: 0.25rem 0.5rem;
             font-size: 0.75rem;
         }
+        #diagram-container {
+            width: 100%;
+            height: 800px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+            position: relative;
+            overflow: hidden;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .node-circle {
+            fill: #667eea;
+            stroke: #fff;
+            stroke-width: 2;
+        }
+        .node-circle.online {
+            fill: #28a745;
+        }
+        .node-circle.offline {
+            fill: #dc3545;
+        }
+        .node-text {
+            fill: #333;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+        .link {
+            stroke: #999;
+            stroke-width: 2;
+            fill: none;
+        }
+        .link-label {
+            fill: #666;
+            font-size: 10px;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+            font-size: 12px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -156,6 +205,9 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">Summary</button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="diagrama-tab" data-bs-toggle="tab" data-bs-target="#diagrama" type="button" role="tab">Diagrama</button>
+            </li>
             {% set hostnames = [] %}
             {% for device in data.devices %}
                 {% if device.get('hostname') and device.hostname not in hostnames %}
@@ -205,6 +257,13 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Diagrama Tab -->
+            <div class="tab-pane fade" id="diagrama" role="tabpanel">
+                <div id="diagram-container">
+                    <svg id="diagram-svg" width="100%" height="100%"></svg>
                 </div>
             </div>
 
@@ -390,12 +449,190 @@
             tabButtons.forEach(button => {
                 button.addEventListener('click', function() {
                     localStorage.setItem('activeTab', this.id);
+                    
+                    // Load diagram when diagram tab is clicked
+                    if (this.id === 'diagrama-tab') {
+                        setTimeout(loadDiagram, 100);
+                    }
                 });
             });
+
+            // Load diagram if diagram tab is active on page load
+            if (activeTabId === 'diagrama-tab') {
+                setTimeout(loadDiagram, 100);
+            }
         });
 
         // Auto-refresh every 5 minutes
         setTimeout(() => location.reload(), 300000);
+
+        // Diagram functionality
+        function loadDiagram() {
+            const container = document.getElementById('diagram-container');
+            const svg = d3.select('#diagram-svg');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            svg.attr('width', width).attr('height', height);
+            
+            // Clear previous diagram
+            svg.selectAll('*').remove();
+            
+            // Get devices data from the page
+            const devices = {{ data.devices|tojson }};
+            
+            // Create nodes (devices)
+            const nodes = [];
+            const nodeMap = {};
+            
+            devices.forEach((device, i) => {
+                const node = {
+                    id: device.ip,
+                    name: device.hostname || device.ip,
+                    status: device.status,
+                    ip: device.ip,
+                    cpu: device.fgProcessorUsage || 0,
+                    memory: device.fgMemoryUsage || 0,
+                    sessions: device.fgCurrentSessions || 0,
+                    bandwidth: device.bandwidth || {},
+                    x: 0,
+                    y: 0
+                };
+                nodes.push(node);
+                nodeMap[device.ip] = node;
+            });
+            
+            // Create links based on network topology (same subnet = connected)
+            const links = [];
+            const subnets = {};
+            
+            nodes.forEach(node => {
+                const ipParts = node.ip.split('.');
+                const subnet = ipParts[0] + '.' + ipParts[1] + '.' + ipParts[2];
+                if (!subnets[subnet]) subnets[subnet] = [];
+                subnets[subnet].push(node);
+            });
+            
+            // Connect devices in same subnet
+            Object.values(subnets).forEach(subnetNodes => {
+                for (let i = 0; i < subnetNodes.length - 1; i++) {
+                    links.push({
+                        source: subnetNodes[i].id,
+                        target: subnetNodes[i+1].id,
+                        subnet: subnetNodes[i].ip.split('.').slice(0,3).join('.')
+                    });
+                }
+            });
+            
+            // Use force simulation
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links.map(l => ({source: nodeMap[l.source], target: nodeMap[l.target], ...l})))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(60));
+            
+            // Create links
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(links)
+                .enter()
+                .append('line')
+                .attr('class', 'link');
+            
+            // Create link labels
+            const linkLabel = svg.append('g')
+                .selectAll('text')
+                .data(links)
+                .enter()
+                .append('text')
+                .attr('class', 'link-label')
+                .text(d => d.subnet);
+            
+            // Create node groups
+            const node = svg.append('g')
+                .selectAll('.node')
+                .data(nodes)
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+            
+            // Add circles
+            node.append('circle')
+                .attr('class', d => 'node-circle ' + d.status)
+                .attr('r', 30);
+            
+            // Add labels
+            node.append('text')
+                .attr('class', 'node-text')
+                .attr('dy', -35)
+                .text(d => d.name);
+            
+            // Add status indicator
+            node.append('text')
+                .attr('class', 'node-text')
+                .attr('dy', 5)
+                .text(d => d.status === 'online' ? `CPU: ${d.cpu}%` : 'OFFLINE');
+            
+            // Tooltip
+            const tooltip = d3.select('body').append('div')
+                .attr('class', 'tooltip')
+                .style('opacity', 0);
+            
+            node.on('mouseover', function(event, d) {
+                tooltip.transition().duration(200).style('opacity', .9);
+                tooltip.html(`
+                    <strong>${d.name}</strong><br>
+                    IP: ${d.ip}<br>
+                    Status: ${d.status}<br>
+                    CPU: ${d.cpu}%<br>
+                    Memory: ${d.memory}%<br>
+                    Sessions: ${d.sessions}<br>
+                    BW Interfaces: ${Object.keys(d.bandwidth).length}
+                `)
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 28) + 'px');
+            })
+            .on('mouseout', function() {
+                tooltip.transition().duration(500).style('opacity', 0);
+            });
+            
+            // Update positions on simulation tick
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                
+                linkLabel
+                    .attr('x', d => (d.source.x + d.target.x) / 2)
+                    .attr('y', d => (d.source.y + d.target.y) / 2);
+                
+                node
+                    .attr('transform', d => `translate(${d.x}, ${d.y})`);
+            });
+            
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+            
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+            
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
     </script>
 </body>
 </html>
