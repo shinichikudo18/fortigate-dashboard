@@ -94,8 +94,8 @@
             <div class="row">
                 <div class="col-md-8">
                     <h3>{{ device.hostname }}</h3>
-                    <div class="model">{{ device.get('model', 'Unknown Model') }}</div>
-                    <div class="firmware">Firmware: {{ device.get('firmware', 'Unknown') }}</div>
+                    <div class="model">{{ device.get('firmware', 'Unknown Model') }}</div>
+                    <div class="firmware">IP: {{ device.ip }}</div>
                     <div class="mt-2">
                         <small>IP: {{ device.ip }} | Location: {{ device.get('sysLocation', 'N/A') }}</small>
                     </div>
