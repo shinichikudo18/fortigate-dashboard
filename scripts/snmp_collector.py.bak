@@ -229,15 +229,9 @@ def collect_device_data(ip):
                     device_data["firmware"] = value
                 elif key == "sysDescr":
                     device_data["sysDescr"] = value
-                    # Parse model from description like "Fortigate Rengo"
-                    if "FortiGate" in value or "Fortigate" in value:
-                        # Extract model - usually the first word or after "FortiGate"
-                        parts = value.split()
-                        if len(parts) > 0:
-                            device_data["model"] = parts[0]  # e.g., "Fortigate"
-                elif key == "fgModel":
-                    # This is actually sysDescr OID, skip to avoid confusion
-                    pass
+                    # Parse model from description
+                    if "FortiGate" in value:
+                        device_data["model"] = value.strip()
                 else:
                     device_data[key] = value
     
