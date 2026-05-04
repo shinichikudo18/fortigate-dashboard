@@ -35,6 +35,11 @@ OIDS = {
     "sysLocation": "1.3.6.1.2.1.1.6.0",
     "fgFirmware": "1.3.6.1.4.1.12356.101.4.1.1.0",
     "fgModel": "1.3.6.1.2.1.1.1.0",  # Use sysDescr for model info
+    # SD-WAN SLA OIDs
+    "fgSdwanSlaStatus": "1.3.6.1.4.1.12356.101.10.2.1.1.13",
+    "fgSdwanSlaLatency": "1.3.6.1.4.1.12356.101.10.2.1.1.14",
+    "fgSdwanSlaJitter": "1.3.6.1.4.1.12356.101.10.2.1.1.15",
+    "fgSdwanSlaPacketLoss": "1.3.6.1.4.1.12356.101.10.2.1.1.16",
 }
 
 # Interface OIDs
@@ -229,14 +234,15 @@ def collect_device_data(ip):
                     device_data["firmware"] = value
                 elif key == "sysDescr":
                     device_data["sysDescr"] = value
-                    # Parse model from description like "Fortigate Rengo"
+                    # Parse model from description
                     if "FortiGate" in value or "Fortigate" in value:
-                        # Extract model - usually the first word or after "FortiGate"
                         parts = value.split()
                         if len(parts) > 0:
-                            device_data["model"] = parts[0]  # e.g., "Fortigate"
-                elif key == "fgModel":
-                    # This is actually sysDescr OID, skip to avoid confusion
+                            device_data["model"] = parts[0]
+                elif key == "fgFirmware":
+                    device_data["firmware"] = value
+                elif key.startswith("fgSdwan"):
+                    # Handle SD-WAN SLA metrics
                     pass
                 else:
                     device_data[key] = value
