@@ -1,0 +1,14 @@
+[Unit]
+Description=FortiGate Dashboard Web Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fortigate-dashboard
+ExecStart=/usr/bin/python3 /opt/fortigate-dashboard/scripts/dashboard.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
