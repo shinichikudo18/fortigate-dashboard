@@ -1,163 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FortiGate Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+    <style>
+        .faceplate {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .faceplate h3 {
+            margin-bottom: 5px;
+            font-size: 1.5rem;
+        }
+        .faceplate .model {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        .faceplate .firmware {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 0.75em;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .interface-card {
+            background: white;
+            border-left: 4px solid #28a745;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0.9em;
+        }
+        .interface-card.down {
+            border-left-color: #dc3545;
+            opacity: 0.6;
+        }
+        .bw-bar {
+            height: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .bw-in {
+            height: 100%;
+            background: #28a745;
+            float: left;
+            transition: width 0.5s;
+        }
+        .bw-out {
+            height: 100%;
+            background: #007bff;
+            float: left;
+            transition: width 0.5s;
+        }
+        .progress-thin {
+            height: 8px;
+        }
+        .tab-content {
+            padding: 15px 0;
+        }
+        .sla-card {
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #28a745;
+        }
+        .sla-card.critical {
+            border-left-color: #dc3545;
+        }
+        .sla-card.warning {
+            border-left-color: #ffc107;
+        }
+        .sla-metric {
+            font-size: 0.85em;
+            margin: 2px 0;
+        }
+        .btn-sm-custom {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        #diagram-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+            position: relative;
+            overflow: hidden;
+        }
+        .diagram-node {
+            position: absolute;
+            width: 120px;
+            height: 80px;
+            background: white;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            z-index: 10;
+        }
+        .diagram-node.offline {
+            border-color: #dc3545;
+            opacity: 0.6;
+        }
+        .diagram-node-title {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .diagram-node-info {
+            font-size: 10px;
+            color: #666;
+        }
+        .diagram-link {
+            position: absolute;
+            background: #999;
+            z-index: 1;
+        }
+        .tooltip-diagram {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">FortiGate Dashboard</span>
+            <span class="text-light">{{ data.collection_time }}</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Devices</h5>
+                        <h2>{{ data.total_devices }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Online</h5>
+                        <h2>{{ data.online_devices }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Offline</h5>
+                        <h2>{{ data.total_devices - data.online_devices }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Availability</h5>
+                        <h2>{% if data.total_devices > 0 %}{{ ((data.online_devices / data.total_devices) * 100)|round(1) }}%{% else %}0%{% endif %}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Branch Tabs -->
+        <ul class="nav nav-tabs" id="branchTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">Summary</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="diagram-tab" data-bs-toggle="tab" data-bs-target="#diagram" type="button" role="tab">Diagram</button>
+            </li>
+            {% set hostnames = [] %}
+            {% for device in data.devices %}
+                {% if device.get('hostname') and device.hostname not in hostnames %}
+                    {% set _ = hostnames.append(device.hostname) %}
+                {% endif %}
+            {% endfor %}
+            {% for hostname in hostnames|sort %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="{{ hostname }}-tab" data-bs-toggle="tab" data-bs-target="#{{ hostname }}" type="button" role="tab">{{ hostname }}</button>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="tab-content" id="branchTabContent">
+            <!-- Summary Tab -->
+            <div class="tab-pane fade show active" id="summary" role="tabpanel">
+                <div class="table-responsive mt-3">
+                    <table class="table table-striped table-hover" id="devicesTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Hostname</th>
+                                <th>IP Address</th>
+                                <th>Status</th>
+                                <th>CPU Usage</th>
+                                <th>Memory Usage</th>
+                                <th>Disk Usage</th>
+                                <th>Active Sessions</th>
+                                <th>Uptime</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for device in data.devices|sort(attribute='ip') %}
+                            <tr class="{% if device.status == 'online' %}table-success{% else %}table-danger{% endif %}">
+                                <td>{% if device.hostname %}{{ device.hostname }}{% else %}{{ device.ip }}{% endif %}</td>
+                                <td>{{ device.ip }}</td>
+                                <td>
+                                    <span class="badge bg-{% if device.status == 'online' %}success{% else %}danger{% endif %}">
+                                        {{ device.status }}
+                                    </span>
+                                </td>
+                                <td>{% if device.status == 'online' %}{{ device.get('fgProcessorUsage', 'N/A') }}%{% else %}N/A{% endif %}</td>
+                                <td>{% if device.status == 'online' %}{{ device.get('fgMemoryUsage', 'N/A') }}%{% else %}N/A{% endif %}</td>
+                                <td>{% if device.status == 'online' %}{{ device.get('fgDiskUsage', 'N/A') }}%{% else %}N/A{% endif %}</td>
+                                <td>{% if device.status == 'online' %}{{ device.get('fgCurrentSessions', 'N/A') }}{% else %}N/A{% endif %}</td>
+                                <td>{% if device.status == 'online' %}{{ device.get('sysUpTime', 'N/A') }}{% else %}N/A{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Diagram Tab -->
+            <div class="tab-pane fade" id="diagram" role="tabpanel">
+                <div id="diagram-container">
+                    <div id="diagram-nodes"></div>
+                    <div id="diagram-links"></div>
+                    <div class="tooltip-diagram" id="tooltip-diagram"></div>
+                </div>
+            </div>
+
+            <!-- Branch Tabs Content -->
+            {% for hostname in hostnames|sort %}
+            <div class="tab-pane fade" id="{{ hostname }}" role="tabpanel">
+                {% for device in data.devices %}
+                {% if device.get('hostname') == hostname %}
+                <div class="faceplate">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h3>{{ device.hostname }}</h3>
+                            <div class="model">{{ device.get('firmware', 'Unknown Model') }}</div>
+                            <div class="firmware">IP: {{ device.ip }} | Location: {{ device.get('sysLocation', 'N/A') }}</div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-{% if device.status == 'online' %}success{% else %}danger{% endif %} fs-6">
+                                {{ device.status|upper }}
+                            </span>
+                            <div class="mt-3">
+                                <small>Uptime: {{ device.get('sysUpTime', 'N/A') }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if device.status == 'online' %}
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-label">CPU Usage</div>
+                            <div class="stat-value">{{ device.get('fgProcessorUsage', 0) }}%</div>
+                            <div class="progress progress-thin mt-2">
+                                <div class="progress-bar bg-{% if device.get('fgProcessorUsage', 0) > 80 %}danger{% elif device.get('fgProcessorUsage', 0) > 60 %}warning{% else %}success{% endif %}" 
+                                     style="width: {{ device.get('fgProcessorUsage', 0) }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-label">Memory Usage</div>
+                            <div class="stat-value">{{ device.get('fgMemoryUsage', 0) }}%</div>
+                            <div class="progress progress-thin mt-2">
+                                <div class="progress-bar bg-{% if device.get('fgMemoryUsage', 0) > 80 %}danger{% elif device.get('fgMemoryUsage', 0) > 60 %}warning{% else %}success{% endif %}" 
+                                     style="width: {{ device.get('fgMemoryUsage', 0) }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-label">Disk Usage</div>
+                            <div class="stat-value">{{ device.get('fgDiskUsage', 0) }}%</div>
+                            <div class="progress progress-thin mt-2">
+                                <div class="progress-bar bg-{% if device.get('fgDiskUsage', 0) > 80 %}danger{% elif device.get('fgDiskUsage', 0) > 60 %}warning{% else %}success{% endif %}" 
+                                     style="width: {{ device.get('fgDiskUsage', 0) }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-label">Active Sessions</div>
+                            <div class="stat-value">{{ device.get('fgCurrentSessions', 0) }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SD-WAN SLA Section -->
+                <h4 class="mb-3">SD-WAN SLA Status</h4>
+                {% if device.get('sla') %}
+                <div class="row">
+                    {% for sla_name, sla_data in device.sla.items() %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="sla-card {% if sla_data.status == 'down' %}critical{% elif sla_data.latency|int > 100 %}warning{% endif %}">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ sla_name }}</strong>
+                                <span class="badge bg-{% if sla_data.status == 'up' %}success{% else %}danger{% endif %}">
+                                    {{ sla_data.status|upper }}
+                                </span>
+                            </div>
+                            <div class="sla-metric">
+                                <small class="text-success">Latency: {{ sla_data.latency }} ms</small>
+                            </div>
+                            <div class="sla-metric">
+                                <small class="text-warning">Jitter: {{ sla_data.jitter }} ms</small>
+                            </div>
+                            <div class="sla-metric">
+                                <small class="text-danger">Packet Loss: {{ sla_data.packet_loss }}%</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No SD-WAN SLA data available.
+                </div>
+                {% endif %}
+
+                <!-- Interface Bandwidth Section (Collapsible) -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">Interface Bandwidth (Real-Time)</h4>
+                    <button class="btn btn-secondary btn-sm-custom" type="button" data-bs-toggle="collapse" data-bs-target="#bw-{{ hostname }}" aria-expanded="false">
+                        Show/Hide
+                    </button>
+                </div>
+                <div class="collapse" id="bw-{{ hostname }}">
+                    {% if device.get('bandwidth') %}
+                    <div class="row">
+                        {% for idx, iface in device.bandwidth.items() %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="interface-card {% if iface.status == 'down' %}down{% endif %}">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ iface.name }}</strong>
+                                    <span class="badge bg-{% if iface.status == 'up' %}success{% else %}secondary{% endif %}">
+                                        {{ iface.status|upper }}
+                                    </span>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-success">↓ In: {{ iface.in_human }}</small><br>
+                                    <small class="text-primary">↑ Out: {{ iface.out_human }}</small>
+                                </div>
+                                {% if device.get('interfaces', {}).get(idx, {}).get('speed', 0) > 0 %}
+                                <div class="bw-bar">
+                                    {% set in_pct = [(iface.in_bps / (device.interfaces[idx].speed / 8 * 1000000) * 100)|round(2), 100]|min %}
+                                    {% set out_pct = [(iface.out_bps / (device.interfaces[idx].speed / 8 * 1000000) * 100)|round(2), 100]|min %}
+                                    <div class="bw-in" style="width: {{ in_pct }}%"></div>
+                                    <div class="bw-out" style="width: {{ out_pct }}%"></div>
+                                </div>
+                                <div class="mt-1">
+                                    <small class="text-muted">Speed: {{ iface.speed }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        Bandwidth data will be available after the next collection cycle (requires 2 data points).
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mt-4">
+                    <h4>System Information</h4>
+                    <table class="table table-sm">
+                        <tr><td><strong>Model/Firmware:</strong></td><td>{{ device.get('firmware', 'N/A') }}</td></tr>
+                        <tr><td><strong>Serial:</strong></td><td>{{ device.get('sysDescr', 'N/A') }}</td></tr>
+                        <tr><td><strong>Contact:</strong></td><td>{{ device.get('sysContact', 'N/A') }}</td></tr>
+                        <tr><td><strong>Location:</strong></td><td>{{ device.get('sysLocation', 'N/A') }}</td></tr>
+                        <tr><td><strong>Uptime:</strong></td><td>{{ device.get('sysUpTime', 'N/A') }}</td></tr>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-danger">
+                    <h4>Device Offline</h4>
+                    <p>Unable to connect to {{ device.ip }} via SNMP (community: Agnov).</p>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Store active tab in localStorage
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeTabId = localStorage.getItem('activeTab');
+            if (activeTabId) {
+                const tabButton = document.getElementById(activeTabId);
+                if (tabButton) {
+                    const tab = new bootstrap.Tab(tabButton);
+                    tab.show();
+                }
+            }
+
+            // Save active tab on click
+            const tabButtons = document.querySelectorAll('#branchTabs button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    localStorage.setItem('activeTab', this.id);
+                    
+                    // Load diagram when diagram tab is clicked
+                    if (this.id === 'diagram-tab') {
+                        setTimeout(loadDiagram, 100);
+                    }
+                });
+            });
+
+            // Load diagram if diagram tab is active on page load
+            if (activeTabId === 'diagram-tab') {
+                setTimeout(loadDiagram, 100);
+            }
+        });
+
+        // Auto-refresh every 5 minutes
+        setTimeout(() => location.reload(), 300000);
+
         // Diagram functionality - Simple working version
         function loadDiagram() {
             console.log('Loading diagram...');
+            
             const container = document.getElementById('diagram-container');
-            const svg = d3.select('#diagram-svg');
-            const width = container.clientWidth || 1000;
-            const height = container.clientHeight || 600;
+            const nodesDiv = document.getElementById('diagram-nodes');
+            const linksDiv = document.getElementById('diagram-links');
+            const tooltip = document.getElementById('tooltip-diagram');
             
-            svg.attr('width', width).attr('height', height);
-            svg.selectAll('*').remove();
+            // Clear previous diagram
+            nodesDiv.innerHTML = '';
+            linksDiv.innerHTML = '';
             
-            // Get devices data
-            const devices = JSON.parse('{{ data.devices|tojson|safe }}');
+            // Get devices data from template
+            const devices = {{ data.devices|tojson|safe }};
             console.log('Devices:', devices.length);
             
             if (!devices || devices.length === 0) {
-                svg.append('text')
-                    .attr('x', width/2)
-                    .attr('y', height/2)
-                    .attr('text-anchor', 'middle')
-                    .text('No device data available');
+                nodesDiv.innerHTML = '<div style="text-align: center; padding: 50px;">No device data available</div>';
                 return;
             }
             
-            // Create nodes
-            const nodes = devices.map(d => ({
-                id: d.ip,
-                name: d.hostname || d.ip,
-                status: d.status,
-                ip: d.ip,
-                cpu: d.fgProcessorUsage || 0,
-                memory: d.fgMemoryUsage || 0,
-                x: width/2 + (Math.random() - 0.5) * 200,
-                y: height/2 + (Math.random() - 0.5) * 200
-            }));
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight || 600;
             
-            // Create links (connect devices in same subnet)
-            const links = [];
+            // Group devices by subnet
             const subnets = {};
-            nodes.forEach(node => {
-                const parts = node.ip.split('.');
+            devices.forEach(device => {
+                const parts = device.ip.split('.');
                 const subnet = parts[0] + '.' + parts[1] + '.' + parts[2];
                 if (!subnets[subnet]) subnets[subnet] = [];
-                subnets[subnet].push(node);
+                subnets[subnet].push(device);
             });
             
-            Object.values(subnets).forEach(subnetNodes => {
-                for (let i = 0; i < subnetNodes.length - 1; i++) {
-                    links.push({
-                        source: subnetNodes[i],
-                        target: subnetNodes[i+1]
+            console.log('Subnets:', Object.keys(subnets).length);
+            
+            // Calculate positions for each subnet
+            const subnetKeys = Object.keys(subnets);
+            const subnetWidth = containerWidth / (subnetKeys.length + 1);
+            
+            let nodeElements = [];
+            
+            // Create nodes for each subnet
+            subnetKeys.forEach((subnet, subnetIndex) => {
+                const subnetDevices = subnets[subnet];
+                const xBase = (subnetIndex + 1) * subnetWidth - (subnetWidth / 2);
+                const ySpacing = containerHeight / (subnetDevices.length + 1);
+                
+                subnetDevices.forEach((device, deviceIndex) => {
+                    const x = xBase;
+                    const y = (deviceIndex + 1) * ySpacing;
+                    
+                    // Create node element
+                    const node = document.createElement('div');
+                    node.className = 'diagram-node' + (device.status !== 'online' ? ' offline' : '');
+                    node.style.left = (x - 60) + 'px';
+                    node.style.top = (y - 40) + 'px';
+                    
+                    node.innerHTML = `
+                        <div class="diagram-node-title">${device.hostname || device.ip}</div>
+                        <div class="diagram-node-info">${device.status === 'online' ? 'CPU: ' + (device.fgProcessorUsage || 0) + '%' : 'OFFLINE'}</div>
+                        <div class="diagram-node-info">${device.ip}</div>
+                    `;
+                    
+                    // Tooltip
+                    node.addEventListener('mouseover', function(event) {
+                        tooltip.style.display = 'block';
+                        tooltip.innerHTML = `
+                            <strong>${device.hostname || device.ip}</strong><br>
+                            IP: ${device.ip}<br>
+                            Status: ${device.status}<br>
+                            CPU: ${device.fgProcessorUsage || 0}%<br>
+                            Memory: ${device.fgMemoryUsage || 0}%<br>
+                            Sessions: ${device.fgCurrentSessions || 0}
+                        `;
+                        tooltip.style.left = (event.pageX + 10) + 'px';
+                        tooltip.style.top = (event.pageY - 28) + 'px';
                     });
+                    
+                    node.addEventListener('mouseout', function() {
+                        tooltip.style.display = 'none';
+                    });
+                    
+                    nodesDiv.appendChild(node);
+                    nodeElements.push({element: node, x: x, y: y, device: device});
+                });
+            });
+            
+            // Create links between devices in same subnet
+            let linkCount = 0;
+            subnetKeys.forEach(subnet => {
+                const subnetDevices = subnets[subnet];
+                for (let i = 0; i < subnetDevices.length - 1; i++) {
+                    const node1 = nodeElements.find(n => n.device.ip === subnetDevices[i].ip);
+                    const node2 = nodeElements.find(n => n.device.ip === subnetDevices[i+1].ip);
+                    
+                    if (node1 && node2) {
+                        const x1 = node1.x;
+                        const y1 = node1.y;
+                        const x2 = node2.x;
+                        const y2 = node2.y;
+                        
+                        // Create horizontal line from node1 to node2 x position
+                        const linkH = document.createElement('div');
+                        linkH.className = 'diagram-link';
+                        linkH.style.left = (Math.min(x1, x2)) + 'px';
+                        linkH.style.top = (y1 - 1) + 'px';
+                        linkH.style.width = Math.abs(x2 - x1) + 'px';
+                        linkH.style.height = '2px';
+                        linksDiv.appendChild(linkH);
+                        
+                        // Create vertical line from node2 x to its position
+                        const linkV = document.createElement('div');
+                        linkV.className = 'diagram-link';
+                        linkV.style.left = (x2 - 1) + 'px';
+                        linkV.style.top = (Math.min(y1, y2)) + 'px';
+                        linkV.style.width = '2px';
+                        linkV.style.height = Math.abs(y2 - y1) + 'px';
+                        linksDiv.appendChild(linkV);
+                        
+                        linkCount++;
+                    }
                 }
             });
             
-            console.log('Nodes:', nodes.length, 'Links:', links.length);
-            
-            // Create simulation
-            const simulation = d3.forceSimulation()
-                .nodes(nodes)
-                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
-                .force('charge', d3.forceManyBody().strength(-300))
-                .force('center', d3.forceCenter(width/2, height/2))
-                .force('collision', d3.forceCollide().radius(50));
-            
-            // Draw links
-            const link = svg.append('g')
-                .selectAll('line')
-                .data(links)
-                .enter()
-                .append('line')
-                .attr('class', 'link')
-                .style('stroke', '#999')
-                .style('stroke-width', 2);
-            
-            // Draw nodes
-            const node = svg.append('g')
-                .selectAll('.node')
-                .data(nodes)
-                .enter()
-                .append('g')
-                .attr('class', 'node')
-                .style('cursor', 'pointer');
-            
-            // Add circles
-            node.append('circle')
-                .attr('r', 25)
-                .style('fill', d => d.status === 'online' ? '#28a745' : '#dc3545')
-                .style('stroke', '#fff')
-                .style('stroke-width', 2);
-            
-            // Add name labels
-            node.append('text')
-                .attr('dy', -30)
-                .attr('text-anchor', 'middle')
-                .style('fill', '#333')
-                .style('font-size', '12px')
-                .style('font-weight', 'bold')
-                .text(d => d.name);
-            
-            // Add status labels
-            node.append('text')
-                .attr('dy', 5)
-                .attr('text-anchor', 'middle')
-                .style('fill', d => d.status === 'online' ? '#28a745' : '#dc3545')
-                .style('font-size', '10px')
-                .text(d => d.status === 'online' ? 'CPU: ' + d.cpu + '%' : 'OFFLINE');
-            
-            // Tooltip
-            const tooltip = d3.select('body').append('div')
-                .attr('class', 'tooltip')
-                .style('opacity', 0)
-                .style('position', 'absolute')
-                .style('background', 'rgba(0,0,0,0.8)')
-                .style('color', 'white')
-                .style('padding', '10px')
-                .style('border-radius', '5px')
-                .style('pointer-events', 'none')
-                .style('font-size', '12px');
-            
-            node.on('mouseover', function(event, d) {
-                tooltip.transition().duration(200).style('opacity', 0.9);
-                tooltip.html('<strong>' + d.name + '</strong><br>IP: ' + d.ip + '<br>Status: ' + d.status + '<br>CPU: ' + d.cpu + '%<br>Memory: ' + d.memory + '%')
-                    .style('left', (event.pageX + 10) + 'px')
-                    .style('top', (event.pageY - 28) + 'px');
-            })
-            .on('mouseout', function() {
-                tooltip.transition().duration(500).style('opacity', 0);
-            });
-            
-            // Drag behavior
-            const drag = d3.drag()
-                .on('start', (event, d) => {
-                    if (!event.active) simulation.alphaTarget(0.3).restart();
-                    d.fx = d.x;
-                    d.fy = d.y;
-                })
-                .on('drag', (event, d) => {
-                    d.fx = event.x;
-                    d.fy = event.y;
-                })
-                .on('end', (event, d) => {
-                    if (!event.active) simulation.alphaTarget(0);
-                    d.fx = null;
-                    d.fy = null;
-                });
-            
-            node.call(drag);
-            
-            // Update positions on tick
-            simulation.on('tick', () => {
-                link
-                    .attr('x1', d => d.source.x)
-                    .attr('y1', d => d.source.y)
-                    .attr('x2', d => d.target.x)
-                    .attr('y2', d => d.target.y);
-                
-                node
-                    .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
-            });
-            
-            console.log('Diagram loaded successfully');
+            console.log('Diagram loaded. Nodes:', nodeElements.length, 'Links:', linkCount);
         }
+    </script>
+</body>
+</html>
