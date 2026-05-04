@@ -34,6 +34,8 @@ OIDS = {
     "fgCurrentSessions": "1.3.6.1.4.1.12356.101.4.1.8.0",
     "sysContact": "1.3.6.1.2.1.1.4.0",
     "sysLocation": "1.3.6.1.2.1.1.6.0",
+    "fgModel": "1.3.6.1.4.1.12356.101.4.1.1.0",
+    "fgFirmware": "1.3.6.1.4.1.12356.101.4.1.2.0",
 }
 
 # Interface OIDs
@@ -259,11 +261,12 @@ def collect_device_data(ip):
                         device_data[key] = int(value)
                     except:
                         device_data[key] = value
+                elif key == "fgModel":
+                    device_data["model"] = value
+                elif key == "fgFirmware":
+                    device_data["firmware"] = value
                 elif key == "sysDescr":
                     device_data[key] = value
-                    model, firmware = parse_model_firmware(value)
-                    device_data["model"] = model
-                    device_data["firmware"] = firmware
                 else:
                     device_data[key] = value
     
