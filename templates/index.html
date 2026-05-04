@@ -89,7 +89,7 @@
                         <tbody>
                             {% for device in data.devices|sort(attribute='ip') %}
                             <tr class="{% if device.status == 'online' %}table-success{% else %}table-danger{% endif %}">
-                                <td><a href="/branch/{{ device.hostname }}">{{ device.hostname }}</a></td>
+                                <td>{% if device.hostname %}<a href="/branch/{{ device.hostname }}">{{ device.hostname }}</a>{% else %}{{ device.ip }}{% endif %}</td>
                                 <td>{{ device.ip }}</td>
                                 <td>
                                     <span class="badge bg-{% if device.status == 'online' %}success{% else %}danger{% endif %}">
@@ -126,8 +126,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for device in data.devices %}
-                                    {% if device.hostname == hostname %}
+                            {% for device in data.devices %}
+                                {% if device.get('hostname') == hostname %}
                                     <tr class="{% if device.status == 'online' %}table-success{% else %}table-danger{% endif %}">
                                         <td>{{ device.ip }}</td>
                                         <td><span class="badge bg-{% if device.status == 'online' %}success{% else %}danger{% endif %}">{{ device.status }}</span></td>
