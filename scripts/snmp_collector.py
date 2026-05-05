@@ -23,11 +23,36 @@ OUTPUT_FILE = DATA_DIR / "fortigate_status.json"
 INTERFACE_FILE = DATA_DIR / "interface_stats.json"
 BW_HISTORY_FILE = DATA_DIR / "bw_history.json"
 
-# API Keys for branches with API access
+# API Keys for all branches with API access
 API_KEYS = {
     "193.168.100.2": "3h9574d48tN36HQ1N77Q5r0j0tpnG5",
     "193.168.100.3": "013GwtQq4nr4m06xxnx6dmwQyQ0s7r",
     "193.168.100.4": "fht819gy6bgg98gzk5ts4165t5pNxb",
+    "193.168.100.5": "0psxbQ6mbyx7b5cQGnHdkm3hQ9377w",
+    "193.168.100.6": "n9pzhhrt1hN3rcw1Qjj3r7ptrj5ppQ",
+    "193.168.100.7": "xzwwQ5w3bx10gb1Nh6gtQrjp4gyQ0w",
+    "193.168.100.8": "H0bQc6gpjdnQQ7jgz1tmk1H8bq13Hg",
+    "193.168.100.9": "75Nn8h9Hk18xpQdhrrk6n480kh0n16",
+    "193.168.100.10": "m01430cNG3Nx83683scG7pNGmfhzc6",
+    "193.168.100.11": "zns7j4ty55r7c9c9tpz6t4N47xpd14",
+    "193.168.100.12": "kt4d5frkH6nkgsbgcc0HNsQ41f533b",
+    "193.168.100.13": "gck91mcqyd0G6tjmgk5gnt8z6kqk9y",
+    "193.168.100.14": "kHdHm6zctr61bwpzNfnjyrnNN4N3wn",
+    "193.168.100.15": "ktkHgr7mg1ymyktqqj04z5cd35N3kQ",
+    "193.168.100.16": "c8fGHynjdw4cfcbtz81QgmGzjdQ9Gn",
+    "193.168.100.17": "nt6zqfk6p9311QwnHf7qbbxc53sGts",
+    "193.168.100.18": "mhhwnkc7t3r1Gm8by7HxtnxGGsQg0n",
+    "193.168.100.19": "7wpG33347QN4pH6t7ksgG0746xjQNh",
+    "193.168.100.20": "sgQddf470gq59dq4rdNt9ghyqnsxfy",
+    "193.168.100.22": "jwNbdrwG4bjz3N6z7xnbcq5wy7H3kt",
+    "193.168.100.23": "tbsxsms4p1t9ktbGdkdQ40zkyfc7Hq",
+    "193.168.100.24": "q7hgbs37gn60fgQjGhjc75jzyQ131w",
+    "193.168.100.25": "fQxzhkngdw9f0w03d1mmmtt3pcjyj1",
+    "193.168.100.26": "p86b1wx95x1h5fqQzjkygzk3c0N1bg",
+    "193.168.100.27": "gdQ1Qd87Q5xrchyy8G11tqzwysgqdN",
+    "193.168.100.28": "bntk4gqNhmwQsHH48rh16sQtqzkp61",
+    "193.168.100.29": "qN170gHz73991wn5j0kcmgGnm0Ns4Q",
+    "193.168.100.250": "HmdbzyspHHj96sk97jb35n36cjfbht",
 }
 
 # OIDs for FortiGate monitoring
@@ -324,12 +349,47 @@ def collect_device_data(ip):
             import requests
             api_key = API_KEYS[ip]
             headers = {"Authorization": f"Bearer {api_key}"}
-            response = requests.get(f"https://{ip}/api/v2/monitor/system/status", headers=headers, verify=False, timeout=5)
-            if response.status_code == 200:
-                device_data["api_status"] = "connected"
-                device_data["api_data"] = response.json()
-            else:
-                device_data["api_status"] = "failed"
+            
+            # Collect multiple API endpoints
+            api_endpoints = {
+                "system_status": "/api/v2/monitor/system/status",
+                "interfaces": "/api/v2/monitor/system/interface",
+                "sdwan_health": "/api/v2/monitor/sdwan/health-check",
+                "vpn_tunnels": "/api/v2/monitor/vpn/ipsec",
+                "firewall_sessions": "/api/v2/monitor/firewall/session",
+                "system_resources": "/api/v2/monitor/system/resources/used",
+            }
+            
+            device_data["api_status"] = "connected"
+            device_data["api_data"] = {}
+            
+            for ep_name, ep_path in api_endpoints.items():
+                try:
+                    response = requests.get(f"https://{ip}{ep_path}", headers=headers, verify=False, timeout=5)
+                    if response.status_code == 200:
+                        device_data["api_data"][ep_name] = response.json()
+                except:
+                    pass
+            
+            # Extract useful data from API responses
+            if "system_status" in device_data["api_data"]:
+                sys_info = device_data["api_data"]["system_status"].get("results", {})
+                device_data["api_hostname"] = sys_info.get("hostname", "")
+                device_data["api_version"] = sys_info.get("version", "")
+                device_data["api_serial"] = sys_info.get("serial", "")
+            
+            if "sdwan_health" in device_data["api_data"]:
+                sdwan_data = device_data["api_data"]["sdwan_health"].get("results", [])
+                if sdwan_data:
+                    device_data["sla"] = {}
+                    for sla in sdwan_data:
+                        sla_name = sla.get("name", "unknown")
+                        device_data["sla"][sla_name] = {
+                            "status": "up" if sla.get("status", 0) == 1 else "down",
+                            "latency_ms": sla.get("latency", 0),
+                            "packet_loss": sla.get("packet_loss", 0)
+                        }
+            
         except Exception as e:
             device_data["api_status"] = f"error: {str(e)}"
     
