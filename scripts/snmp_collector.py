@@ -70,6 +70,9 @@ OIDS = {
     "fgVWLHealthCheckStatus": "1.3.6.1.4.1.12356.101.4.9.2.1.4",  # Status per link
     "fgVWLHealthCheckLatency": "1.3.6.1.4.1.12356.101.4.9.2.1.5",  # Latency per link
     "fgVWLHealthCheckLoss": "1.3.6.1.4.1.12356.101.4.9.2.1.9",  # Packet loss per link
+    # VPN Tunnel OIDs (try these)
+    "fgVpnTunnelName": "1.3.6.1.4.1.12356.1.2.1.1.2",
+    "fgVpnTunnelStatus": "1.3.6.1.4.1.12356.1.2.1.1.3",
 }
 
 # Interface OIDs
@@ -395,6 +398,27 @@ def collect_device_data(ip):
             
         except Exception as e:
             device_data["api_status"] = f"error: {str(e)}"
+    
+    # Backup: Collect VPN tunnel data via SNMP (if API failed or unavailable)
+    if "vpn_tunnels" not in device_data.get("api_data", {}):
+        vpn_names = snmp_walk(ip, OIDS["fgVpnTunnelName"])
+        vpn_statuses = snmp_walk(ip, OIDS["fgVpnTunnelStatus"])
+        
+        if vpn_names or vpn_statuses:
+            device_data["vpn_snmp"] = {"results": []}
+            all_indices = set()
+            if vpn_names:
+                all_indices.update(vpn_names.keys())
+            if vpn_statuses:
+                all_indices.update(vpn_statuses.keys())
+            
+            for idx in sorted(all_indices):
+                name = vpn_names.get(idx, f"tunnel_{idx}") if vpn_names else f"tunnel_{idx}"
+                status = vpn_statuses.get(idx, "2") if vpn_statuses else "2"
+                device_data["vpn_snmp"]["results"].append({
+                    "name": name,
+                    "status_snmp": "up" if status == "1" else "down"
+                })
     
     return device_data
 

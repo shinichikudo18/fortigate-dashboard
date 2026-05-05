@@ -460,7 +460,7 @@
                 <!-- VPN Tunnels -->
                 {% if device.api_data.get('vpn_tunnels') %}
                 <div class="mt-4">
-                    <h4>VPN Tunnels</h4>
+                    <h4>VPN Tunnels <span class="badge bg-info">API</span></h4>
                     <div class="row">
                         {% for tunnel in device.api_data.vpn_tunnels.get('results', [])[:10] %}
                         {% set vpn_status = tunnel.proxyid[0].status if tunnel.get('proxyid') else 'down' %}
@@ -474,6 +474,24 @@
                                 </div>
                                 <div class="mt-1">
                                     <small>Remote: {{ tunnel.get('rgwy', 'N/A') }} | In: {{ tunnel.get('incoming_bytes', 0) }} | Out: {{ tunnel.get('outgoing_bytes', 0) }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% elif device.get('vpn_snmp') %}
+                <div class="mt-4">
+                    <h4>VPN Tunnels <span class="badge bg-warning">SNMP</span></h4>
+                    <div class="row">
+                        {% for tunnel in device.vpn_snmp.results %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="interface-card {% if tunnel.status_snmp != 'up' %}down{% endif %}">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ tunnel.name }}</strong>
+                                    <span class="badge bg-{% if tunnel.status_snmp == 'up' %}success{% else %}danger{% endif %}">
+                                        {{ tunnel.status_snmp|upper }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
