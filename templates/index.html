@@ -209,21 +209,13 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="diagram-tab" data-bs-toggle="tab" data-bs-target="#diagram" type="button" role="tab">Diagram</button>
             </li>
-            {% set hostnames = [] %}
-            {% for device in data.devices %}
-                {% if device.get('hostname') and device.hostname not in hostnames %}
-                    {% set _ = hostnames.append(device.hostname) %}
-                {% endif %}
-            {% endfor %}
-            {% for hostname in hostnames|sort %}
+            {% for device in data.devices|sort(attribute='ip') %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-{{ loop.index0 }}" data-bs-toggle="tab" data-bs-target="#content-{{ loop.index0 }}" type="button" role="tab">
-                    {{ hostname }}
-                    {% for d in data.devices %}
-                        {% if d.hostname == hostname and d.ip == '193.168.100.250' %}
-                            <span class="badge bg-warning">HUB02</span>
-                        {% endif %}
-                    {% endfor %}
+                <button class="nav-link" id="tab-{{ device.ip|replace('.', '-') }}" data-bs-toggle="tab" data-bs-target="#content-{{ device.ip|replace('.', '-') }}" type="button" role="tab">
+                    {{ device.hostname if device.get('hostname') else device.ip }}
+                    {% if device.ip == '193.168.100.250' %}
+                        <span class="badge bg-warning">HUB02</span>
+                    {% endif %}
                 </button>
             </li>
             {% endfor %}
@@ -277,40 +269,10 @@
                 </div>
             </div>
 
-            <!-- Branch Tabs Content -->
-            {% for hostname in hostnames|sort %}
-            <div class="tab-pane fade" id="content-{{ loop.index0 }}" role="tabpanel">
-                {% for device in data.devices %}
-                {% if device.get('hostname') == hostname %}
-                <div class="faceplate">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h3>
-                                {{ device.hostname }}
-                                {% if device.ip == '193.168.100.250' %}
-                                    <span class="badge bg-warning">HUB02 - SD-WAN Central</span>
-                                {% endif %}
-                            </h3>
-                            <div class="model">{{ device.get('firmware', 'Unknown Model') }}</div>
-                            <div class="firmware">IP: {{ device.ip }} | Location: {{ device.get('sysLocation', 'N/A') }}</div>
-                            {% if device.ip == '193.168.100.250' %}
-                            <div class="mt-2">
-                                <small class="text-warning"><i class="fas fa-info-circle"></i> This device acts as the central hub (HUB02) in the SD-WAN architecture, managing VPN tunnels and SD-WAN traffic for all branch offices.</small>
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-4 text-end">
-                            <span class="badge bg-{% if device.status == 'online' %}success{% else %}danger{% endif %} fs-6">
-                                {{ device.status|upper }}
-                            </span>
-                            <div class="mt-3">
-                                <small>Uptime: {{ device.get('sysUpTime', 'N/A') }}</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {% if device.status == 'online' %}
+        <!-- Branch Tabs Content -->
+        {% for device in data.devices|sort(attribute='ip') %}
+        <div class="tab-pane fade" id="content-{{ device.ip|replace('.', '-') }}" role="tabpanel">
+            {% if device.status == 'online' %}
                 <div class="row mb-3">
                     <div class="col-md-3">
                         <div class="stat-card">
