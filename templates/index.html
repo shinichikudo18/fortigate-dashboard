@@ -217,7 +217,14 @@
             {% endfor %}
             {% for hostname in hostnames|sort %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="{{ hostname }}-tab" data-bs-toggle="tab" data-bs-target="#{{ hostname }}" type="button" role="tab">{{ hostname }}</button>
+                <button class="nav-link" id="{{ hostname }}-tab" data-bs-toggle="tab" data-bs-target="#{{ hostname }}" type="button" role="tab">
+                    {{ hostname }}
+                    {% for d in data.devices %}
+                        {% if d.hostname == hostname and d.ip == '193.168.100.250' %}
+                            <span class="badge bg-warning">HUB02</span>
+                        {% endif %}
+                    {% endfor %}
+                </button>
             </li>
             {% endfor %}
         </ul>
