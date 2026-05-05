@@ -219,11 +219,15 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="{{ hostname }}-tab" data-bs-toggle="tab" data-bs-target="#{{ hostname }}" type="button" role="tab">
                     {{ hostname }}
+                    {% set is_hub = false %}
                     {% for d in data.devices %}
                         {% if d.hostname == hostname and d.ip == '193.168.100.250' %}
-                            <span class="badge bg-warning">HUB02</span>
+                            {% set is_hub = true %}
                         {% endif %}
                     {% endfor %}
+                    {% if is_hub %}
+                        <span class="badge bg-warning">HUB02</span>
+                    {% endif %}
                 </button>
             </li>
             {% endfor %}
