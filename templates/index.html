@@ -215,6 +215,16 @@
                     {% set _ = devices_by_ip.update({device.ip: device.hostname}) %}
                 {% endif %}
             {% endfor %}
+            {% for ip, hostname in devices_by_ip.items()|sort %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-{{ loop.index0 }}" data-bs-toggle="tab" data-bs-target="#content-{{ loop.index0 }}" type="button" role="tab">
+                    {{ hostname }}
+                    {% if ip == '193.168.100.250' %}
+                        <span class="badge bg-warning">HUB02</span>
+                    {% endif %}
+                </button>
+            </li>
+            {% endfor %}
             {% for ip in devices_by_ip.keys()|sort %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="ip-{{ ip|replace('.', '-') }}-tab" data-bs-toggle="tab" data-bs-target="#ip-{{ ip|replace('.', '-') }}" type="button" role="tab">
@@ -277,7 +287,7 @@
 
             <!-- Branch Tabs Content -->
             {% for ip, hostname in devices_by_ip.items()|sort %}
-            <div class="tab-pane fade" id="ip-{{ ip|replace('.', '-') }}" role="tabpanel">
+            <div class="tab-pane fade" id="content-{{ loop.index0 }}" role="tabpanel">
                 {% for device in data.devices %}
                 {% if device.ip == ip %}
                 <div class="faceplate">
