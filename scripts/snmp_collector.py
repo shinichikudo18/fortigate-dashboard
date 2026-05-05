@@ -347,6 +347,9 @@ def collect_device_data(ip):
     if ip in API_KEYS:
         try:
             import requests
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            
             api_key = API_KEYS[ip]
             headers = {"Authorization": f"Bearer {api_key}"}
             

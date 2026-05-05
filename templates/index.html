@@ -453,6 +453,72 @@
                     </div>
                 </div>
                 {% endif %}
+
+                <!-- API Data Sections (for branches with API access) -->
+                {% if device.get('api_status') == 'connected' and device.get('api_data') %}
+                
+                <!-- VPN Tunnels -->
+                {% if device.api_data.get('vpn_tunnels') %}
+                <div class="mt-4">
+                    <h4>VPN Tunnels</h4>
+                    <div class="row">
+                        {% for tunnel in device.api_data.vpn_tunnels.get('results', [])[:10] %}
+                        <div class="col-md-6 col-lg-4">
+                            <div class="interface-card {% if tunnel.get('status') != 1 %}down{% endif %}">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ tunnel.get('name', 'Unknown') }}</strong>
+                                    <span class="badge bg-{% if tunnel.get('status') == 1 %}success{% else %}danger{% endif %}">
+                                        {% if tunnel.get('status') == 1 %}UP{% else %}DOWN{% endif %}
+                                    </span>
+                                </div>
+                                <div class="mt-1">
+                                    <small>Remote: {{ tunnel.get('remote-gw', 'N/A') }} | Bytes: {{ tunnel.get('bytes', 0) }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Firewall Sessions -->
+                {% if device.api_data.get('firewall_sessions') %}
+                <div class="mt-4">
+                    <h4>Firewall Sessions</h4>
+                    <div class="alert alert-info">
+                        Total Sessions: {{ device.api_data.firewall_sessions.get('results', {}).get('count', 0) }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- System Resources from API -->
+                {% if device.api_data.get('system_resources') %}
+                <div class="mt-4">
+                    <h4>System Resources (API)</h4>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-label">CPU (API)</div>
+                                <div class="stat-value">{{ device.api_data.system_resources.get('results', {}).get('cpu', 0) }}%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-label">Memory (API)</div>
+                                <div class="stat-value">{{ device.api_data.system_resources.get('results', {}).get('mem', 0) }}%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-label">Disk (API)</div>
+                                <div class="stat-value">{{ device.api_data.system_resources.get('results', {}).get('disk', 0) }}%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% endif %}
                 {% else %}
                 <div class="alert alert-danger">
                     <h4>Device Offline</h4>
