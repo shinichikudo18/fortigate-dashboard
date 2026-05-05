@@ -515,14 +515,12 @@
                     </div>
                 </div>
                 {% endif %}
-
-                {% endif %}
+                
                 {% else %}
                 <div class="alert alert-danger">
                     <h4>Device Offline</h4>
                     <p>Unable to connect to {{ device.ip }} via SNMP (community: Agnov).</p>
                 </div>
-                {% endif %}
                 {% endif %}
                 {% endfor %}
             </div>
