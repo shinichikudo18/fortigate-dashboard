@@ -212,7 +212,7 @@
             {% for device in data.devices %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="tab-{{ loop.index0 }}" data-bs-toggle="tab" data-bs-target="#content-{{ loop.index0 }}" type="button" role="tab">
-                    {{ device.hostname if device.get('hostname') else device.ip }}
+                    {% if device.get('hostname') %}{{ device.hostname }}{% else %}{{ device.ip }}{% endif %}
                     {% if device.ip == '193.168.100.250' %}
                         <span class="badge bg-warning">HUB02</span>
                     {% endif %}
