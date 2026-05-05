@@ -209,9 +209,9 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="diagram-tab" data-bs-toggle="tab" data-bs-target="#diagram" type="button" role="tab">Diagram</button>
             </li>
-            {% for device in data.devices|sort(attribute='ip') %}
+            {% for device in data.devices %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-{{ device.ip|replace('.', '-') }}" data-bs-toggle="tab" data-bs-target="#content-{{ device.ip|replace('.', '-') }}" type="button" role="tab">
+                <button class="nav-link" id="tab-{{ loop.index0 }}" data-bs-toggle="tab" data-bs-target="#content-{{ loop.index0 }}" type="button" role="tab">
                     {{ device.hostname if device.get('hostname') else device.ip }}
                     {% if device.ip == '193.168.100.250' %}
                         <span class="badge bg-warning">HUB02</span>
@@ -270,8 +270,8 @@
             </div>
 
         <!-- Branch Tabs Content -->
-        {% for device in data.devices|sort(attribute='ip') %}
-        <div class="tab-pane fade" id="content-{{ device.ip|replace('.', '-') }}" role="tabpanel">
+        {% for device in data.devices %}
+        <div class="tab-pane fade" id="content-{{ loop.index0 }}" role="tabpanel">
             {% if device.status == 'online' %}
                 <div class="row mb-3">
                     <div class="col-md-3">

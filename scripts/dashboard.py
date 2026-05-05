@@ -26,6 +26,8 @@ def load_data():
 def index():
     """Main dashboard page - summary view"""
     data = load_data()
+    # Sort devices by IP for consistent tab ordering
+    data["devices"].sort(key=lambda x: x.get("ip", ""))
     return render_template('index.html', data=data)
 
 @app.route('/api/summary')
