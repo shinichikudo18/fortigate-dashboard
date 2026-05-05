@@ -558,168 +558,41 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Store active tab in localStorage
+        // Pure JS tab switching with localStorage
         document.addEventListener('DOMContentLoaded', function() {
+            const tabButtons = document.querySelectorAll('#branchTabs button[data-bs-toggle="tab"]');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            
+            // Load active tab from localStorage
             const activeTabId = localStorage.getItem('activeTab');
             if (activeTabId) {
                 const tabButton = document.getElementById(activeTabId);
                 if (tabButton) {
-                    const tab = new bootstrap.Tab(tabButton);
-                    tab.show();
+                    // Hide all tab panes
+                    tabPanes.forEach(pane => {
+                        pane.classList.remove('show', 'active');
+                    });
+                    // Show active tab pane
+                    const targetId = tabButton.getAttribute('data-bs-target').substring(1);
+                    const targetPane = document.getElementById(targetId);
+                    if (targetPane) {
+                        targetPane.classList.add('show', 'active');
+                    }
+                    // Mark button as active
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabButton.classList.add('active');
                 }
             }
-
+            
             // Save active tab on click
-            const tabButtons = document.querySelectorAll('#branchTabs button');
             tabButtons.forEach(button => {
                 button.addEventListener('click', function() {
                     localStorage.setItem('activeTab', this.id);
-                    
-                    // Load diagram when diagram tab is clicked
-                    if (this.id === 'diagram-tab') {
-                        setTimeout(loadDiagram, 100);
-                    }
                 });
             });
-
-            // Load diagram if diagram tab is active on page load
-            if (activeTabId === 'diagram-tab') {
-                setTimeout(loadDiagram, 100);
-            }
         });
-
-        // Auto-refresh every 5 minutes
-        setTimeout(() => location.reload(), 300000);
-
-        // Diagram functionality - Simple working version
-        function loadDiagram() {
-            console.log('Loading diagram...');
-            
-            const container = document.getElementById('diagram-container');
-            const nodesDiv = document.getElementById('diagram-nodes');
-            const linksDiv = document.getElementById('diagram-links');
-            const tooltip = document.getElementById('tooltip-diagram');
-            
-            // Clear previous diagram
-            nodesDiv.innerHTML = '';
-            linksDiv.innerHTML = '';
-            
-            // Get devices data from template
-            const devices = {{ data.devices|tojson|safe }};
-            console.log('Devices:', devices.length);
-            
-            if (!devices || devices.length === 0) {
-                nodesDiv.innerHTML = '<div style="text-align: center; padding: 50px;">No device data available</div>';
-                return;
-            }
-            
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight || 600;
-            
-            // Group devices by subnet
-            const subnets = {};
-            devices.forEach(device => {
-                const parts = device.ip.split('.');
-                const subnet = parts[0] + '.' + parts[1] + '.' + parts[2];
-                if (!subnets[subnet]) subnets[subnet] = [];
-                subnets[subnet].push(device);
-            });
-            
-            console.log('Subnets:', Object.keys(subnets).length);
-            
-            // Calculate positions for each subnet
-            const subnetKeys = Object.keys(subnets);
-            const subnetWidth = containerWidth / (subnetKeys.length + 1);
-            
-            let nodeElements = [];
-            
-            // Create nodes for each subnet
-            subnetKeys.forEach((subnet, subnetIndex) => {
-                const subnetDevices = subnets[subnet];
-                const xBase = (subnetIndex + 1) * subnetWidth - (subnetWidth / 2);
-                const ySpacing = containerHeight / (subnetDevices.length + 1);
-                
-                subnetDevices.forEach((device, deviceIndex) => {
-                    const x = xBase;
-                    const y = (deviceIndex + 1) * ySpacing;
-                    
-                    // Create node element
-                    const node = document.createElement('div');
-                    node.className = 'diagram-node' + (device.status !== 'online' ? ' offline' : '');
-                    node.style.left = (x - 60) + 'px';
-                    node.style.top = (y - 40) + 'px';
-                    
-                    node.innerHTML = `
-                        <div class="diagram-node-title">${device.hostname || device.ip}</div>
-                        <div class="diagram-node-info">${device.status === 'online' ? 'CPU: ' + (device.fgProcessorUsage || 0) + '%' : 'OFFLINE'}</div>
-                        <div class="diagram-node-info">${device.ip}</div>
-                    `;
-                    
-                    // Tooltip
-                    node.addEventListener('mouseover', function(event) {
-                        tooltip.style.display = 'block';
-                        tooltip.innerHTML = `
-                            <strong>${device.hostname || device.ip}</strong><br>
-                            IP: ${device.ip}<br>
-                            Status: ${device.status}<br>
-                            CPU: ${device.fgProcessorUsage || 0}%<br>
-                            Memory: ${device.fgMemoryUsage || 0}%<br>
-                            Sessions: ${device.fgCurrentSessions || 0}
-                        `;
-                        tooltip.style.left = (event.pageX + 10) + 'px';
-                        tooltip.style.top = (event.pageY - 28) + 'px';
-                    });
-                    
-                    node.addEventListener('mouseout', function() {
-                        tooltip.style.display = 'none';
-                    });
-                    
-                    nodesDiv.appendChild(node);
-                    nodeElements.push({element: node, x: x, y: y, device: device});
-                });
-            });
-            
-            // Create links between devices in same subnet
-            let linkCount = 0;
-            subnetKeys.forEach(subnet => {
-                const subnetDevices = subnets[subnet];
-                for (let i = 0; i < subnetDevices.length - 1; i++) {
-                    const node1 = nodeElements.find(n => n.device.ip === subnetDevices[i].ip);
-                    const node2 = nodeElements.find(n => n.device.ip === subnetDevices[i+1].ip);
-                    
-                    if (node1 && node2) {
-                        const x1 = node1.x;
-                        const y1 = node1.y;
-                        const x2 = node2.x;
-                        const y2 = node2.y;
-                        
-                        // Create horizontal line from node1 to node2 x position
-                        const linkH = document.createElement('div');
-                        linkH.className = 'diagram-link';
-                        linkH.style.left = (Math.min(x1, x2)) + 'px';
-                        linkH.style.top = (y1 - 1) + 'px';
-                        linkH.style.width = Math.abs(x2 - x1) + 'px';
-                        linkH.style.height = '2px';
-                        linksDiv.appendChild(linkH);
-                        
-                        // Create vertical line from node2 x to its position
-                        const linkV = document.createElement('div');
-                        linkV.className = 'diagram-link';
-                        linkV.style.left = (x2 - 1) + 'px';
-                        linkV.style.top = (Math.min(y1, y2)) + 'px';
-                        linkV.style.width = '2px';
-                        linkV.style.height = Math.abs(y2 - y1) + 'px';
-                        linksDiv.appendChild(linkV);
-                        
-                        linkCount++;
-                    }
-                }
-            });
-            
-            console.log('Diagram loaded. Nodes:', nodeElements.length, 'Links:', linkCount);
-        }
     </script>
 </body>
 </html>
