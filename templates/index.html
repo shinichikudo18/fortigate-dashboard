@@ -209,23 +209,17 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="diagram-tab" data-bs-toggle="tab" data-bs-target="#diagram" type="button" role="tab">Diagram</button>
             </li>
-            {% set hostnames = [] %}
+            {% set devices_by_ip = {} %}
             {% for device in data.devices %}
-                {% if device.get('hostname') and device.hostname not in hostnames %}
-                    {% set _ = hostnames.append(device.hostname) %}
+                {% if device.get('hostname') %}
+                    {% set _ = devices_by_ip.update({device.ip: device.hostname}) %}
                 {% endif %}
             {% endfor %}
-            {% for hostname in hostnames|sort %}
+            {% for ip in devices_by_ip.keys()|sort %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="{{ hostname }}-tab" data-bs-toggle="tab" data-bs-target="#{{ hostname }}" type="button" role="tab">
-                    {{ hostname }}
-                    {% set dev = namespace(obj=None) %}
-                    {% for d in data.devices %}
-                        {% if d.hostname == hostname %}
-                            {% set dev.obj = d %}
-                        {% endif %}
-                    {% endfor %}
-                    {% if dev.obj and dev.obj.ip == '193.168.100.250' %}
+                <button class="nav-link" id="ip-{{ ip|replace('.', '-') }}-tab" data-bs-toggle="tab" data-bs-target="#ip-{{ ip|replace('.', '-') }}" type="button" role="tab">
+                    {{ devices_by_ip[ip] }}
+                    {% if ip == '193.168.100.250' %}
                         <span class="badge bg-warning">HUB02</span>
                     {% endif %}
                 </button>
@@ -282,10 +276,10 @@
             </div>
 
             <!-- Branch Tabs Content -->
-            {% for hostname in hostnames|sort %}
-            <div class="tab-pane fade" id="{{ hostname }}" role="tabpanel">
+            {% for ip, hostname in devices_by_ip.items()|sort %}
+            <div class="tab-pane fade" id="ip-{{ ip|replace('.', '-') }}" role="tabpanel">
                 {% for device in data.devices %}
-                {% if device.get('hostname') == hostname %}
+                {% if device.ip == ip %}
                 <div class="faceplate">
                     <div class="row">
                         <div class="col-md-8">
