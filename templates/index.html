@@ -209,13 +209,21 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="diagram-tab" data-bs-toggle="tab" data-bs-target="#diagram" type="button" role="tab">Diagram</button>
             </li>
-            {% for device in data.devices|sort(attribute='ip') %}
+            {% set hostnames = [] %}
+            {% for device in data.devices %}
+                {% if device.get('hostname') and device.hostname not in hostnames %}
+                    {% set _ = hostnames.append(device.hostname) %}
+                {% endif %}
+            {% endfor %}
+            {% for hostname in hostnames|sort %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-{{ loop.index0 }}" data-bs-toggle="tab" data-bs-target="#content-{{ loop.index0 }}" type="button" role="tab">
-                    {% if device.get('hostname') %}{{ device.hostname }}{% else %}{{ device.ip }}{% endif %}
-                    {% if device.ip == '193.168.100.250' %}
-                        <span class="badge bg-warning">HUB02</span>
-                    {% endif %}
+                <button class="nav-link" id="{{ hostname }}-tab" data-bs-toggle="tab" data-bs-target="#{{ hostname }}" type="button" role="tab">
+                    {{ hostname }}
+                    {% for d in data.devices %}
+                        {% if d.hostname == hostname and d.ip == '193.168.100.250' %}
+                            <span class="badge bg-warning">HUB02</span>
+                        {% endif %}
+                    {% endfor %}
                 </button>
             </li>
             {% endfor %}
@@ -269,10 +277,30 @@
                 </div>
             </div>
 
-        <!-- Branch Tabs Content -->
-        {% for device in data.devices|sort(attribute='ip') %}
-        <div class="tab-pane fade" id="content-{{ loop.index0 }}" role="tabpanel">
-            {% if device.status == 'online' %}
+            <!-- Branch Tabs Content -->
+            {% for hostname in hostnames|sort %}
+            <div class="tab-pane fade" id="{{ hostname }}" role="tabpanel">
+                {% for device in data.devices %}
+                {% if device.get('hostname') == hostname %}
+                <div class="faceplate">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h3>{{ device.hostname }}</h3>
+                            <div class="model">{{ device.get('firmware', 'Unknown Model') }}</div>
+                            <div class="firmware">IP: {{ device.ip }} | Location: {{ device.get('sysLocation', 'N/A') }}</div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-{% if device.status == 'online' %}success{% else %}danger{% endif %} fs-6">
+                                {{ device.status|upper }}
+                            </span>
+                            <div class="mt-3">
+                                <small>Uptime: {{ device.get('sysUpTime', 'N/A') }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if device.status == 'online' %}
                 <div class="row mb-3">
                     <div class="col-md-3">
                         <div class="stat-card">
@@ -515,12 +543,14 @@
                     </div>
                 </div>
                 {% endif %}
-                
+
+                {% endif %}
                 {% else %}
                 <div class="alert alert-danger">
                     <h4>Device Offline</h4>
                     <p>Unable to connect to {{ device.ip }} via SNMP (community: Agnov).</p>
                 </div>
+                {% endif %}
                 {% endif %}
                 {% endfor %}
             </div>
