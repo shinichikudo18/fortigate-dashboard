@@ -463,16 +463,17 @@
                     <h4>VPN Tunnels</h4>
                     <div class="row">
                         {% for tunnel in device.api_data.vpn_tunnels.get('results', [])[:10] %}
+                        {% set vpn_status = tunnel.proxyid[0].status if tunnel.get('proxyid') else 'down' %}
                         <div class="col-md-6 col-lg-4">
-                            <div class="interface-card {% if tunnel.get('status') != 1 %}down{% endif %}">
+                            <div class="interface-card {% if vpn_status != 'up' %}down{% endif %}">
                                 <div class="d-flex justify-content-between">
                                     <strong>{{ tunnel.get('name', 'Unknown') }}</strong>
-                                    <span class="badge bg-{% if tunnel.get('status') == 1 %}success{% else %}danger{% endif %}">
-                                        {% if tunnel.get('status') == 1 %}UP{% else %}DOWN{% endif %}
+                                    <span class="badge bg-{% if vpn_status == 'up' %}success{% else %}danger{% endif %}">
+                                        {{ vpn_status|upper }}
                                     </span>
                                 </div>
                                 <div class="mt-1">
-                                    <small>Remote: {{ tunnel.get('remote-gw', 'N/A') }} | Bytes: {{ tunnel.get('bytes', 0) }}</small>
+                                    <small>Remote: {{ tunnel.get('rgwy', 'N/A') }} | In: {{ tunnel.get('incoming_bytes', 0) }} | Out: {{ tunnel.get('outgoing_bytes', 0) }}</small>
                                 </div>
                             </div>
                         </div>
