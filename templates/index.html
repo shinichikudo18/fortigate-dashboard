@@ -227,16 +227,6 @@
                 </button>
             </li>
             {% endfor %}
-            {% for ip in devices_by_ip.keys()|sort %}
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="ip-{{ ip|replace('.', '-') }}-tab" data-bs-toggle="tab" data-bs-target="#ip-{{ ip|replace('.', '-') }}" type="button" role="tab">
-                    {{ devices_by_ip[ip] }}
-                    {% if ip == '193.168.100.250' %}
-                        <span class="badge bg-warning">HUB02</span>
-                    {% endif %}
-                </button>
-            </li>
-            {% endfor %}
         </ul>
 
         <div class="tab-content" id="branchTabContent">
